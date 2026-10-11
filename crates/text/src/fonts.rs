@@ -529,6 +529,8 @@ enum FallbackScript {
     /// Sinhala (one family covers them all on Windows; elsewhere each has its own).
     Indic,
     Thai,
+    /// Georgian: Mkhedruli, Asomtavruli and Nuskhuri, and Mtavruli capitals.
+    Georgian,
     Other,
 }
 
@@ -557,6 +559,7 @@ fn script_of(c: char) -> FallbackScript {
         0x0590..=0x05FF | 0xFB1D..=0xFB4F => FallbackScript::Hebrew,
         0x0900..=0x0DFF | 0xA8E0..=0xA8FF => FallbackScript::Indic,
         0x0E00..=0x0E7F => FallbackScript::Thai,
+        0x10A0..=0x10FF | 0x1C90..=0x1CBF | 0x2D00..=0x2D2F => FallbackScript::Georgian,
         _ => FallbackScript::Other,
     }
 }
@@ -627,6 +630,8 @@ const INDIC_FAMILIES: &[&str] = &[
     "Noto Sans Sinhala",
 ];
 const THAI_FAMILIES: &[&str] = &["Leelawadee UI", "Tahoma", "Thonburi", "Noto Sans Thai", "Noto Sans Thai UI", "Loma", "Garuda"];
+/// Windows (Sylfaen), macOS (the system's SF Georgian, then Arial Unicode MS), then the Linux names.
+const GEORGIAN_FAMILIES: &[&str] = &["Sylfaen", ".SF Georgian", "SF Georgian", "Arial Unicode MS", "Noto Sans Georgian", "DejaVu Sans"];
 
 /// The CJK locale the host asked fallbacks to prefer, when it has one (see [`set_cjk_locale`]).
 static REQUESTED_CJK_LOCALE: RwLock<Option<String>> = RwLock::new(None);
@@ -691,6 +696,7 @@ fn families_for(s: FallbackScript) -> &'static [&'static str] {
         FallbackScript::Hebrew => HEBREW_FAMILIES,
         FallbackScript::Indic => INDIC_FAMILIES,
         FallbackScript::Thai => THAI_FAMILIES,
+        FallbackScript::Georgian => GEORGIAN_FAMILIES,
         FallbackScript::Other => &[],
     }
 }
@@ -929,6 +935,8 @@ mod tests {
         assert_eq!(script_of('क'), FallbackScript::Indic);
         assert_eq!(script_of('த'), FallbackScript::Indic);
         assert_eq!(script_of('ก'), FallbackScript::Thai);
+        assert_eq!(script_of('ა'), FallbackScript::Georgian);
+        assert_eq!(script_of('\u{1c90}'), FallbackScript::Georgian, "Mtavruli");
         assert_eq!(script_of('\u{feff}'), FallbackScript::Other, "the byte order mark is no Arabic letter");
     }
 
@@ -940,7 +948,9 @@ mod tests {
     fn other_scripts_fall_back_to_a_plain_system_family() {
         scan_system();
         let inter = resolve("Inter", "Regular").face;
-        for (c, families) in [('م', ARABIC_FAMILIES), ('א', HEBREW_FAMILIES), ('क', INDIC_FAMILIES), ('த', INDIC_FAMILIES), ('ก', THAI_FAMILIES)] {
+        for (c, families) in
+            [('م', ARABIC_FAMILIES), ('א', HEBREW_FAMILIES), ('क', INDIC_FAMILIES), ('த', INDIC_FAMILIES), ('ก', THAI_FAMILIES), ('ა', GEORGIAN_FAMILIES)]
+        {
             let covering = families.iter().any(|n| resolve_in(n, "Regular").is_some_and(|r| face(r.face).has_char(c)));
             if !covering {
                 eprintln!("{c}: no family from the list is installed; skipping");

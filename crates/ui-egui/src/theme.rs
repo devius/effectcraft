@@ -363,6 +363,7 @@ const SCRIPT_PROBES: &[(char, &str)] = &[
     ('ಕ', "kannada-system"),
     ('ക', "malayalam-system"),
     ('ก', "thai-system"),
+    ('ა', "georgian-system"),
 ];
 
 /// Register the system fallbacks for scripts the bundled fonts lack in every font family, and
@@ -574,6 +575,17 @@ mod script_font_tests {
             }
             assert_drawn("en", text);
         }
+    }
+
+    /// The Georgian interface draws its Mkhedruli text with an installed Georgian face (Sylfaen,
+    /// SF Georgian, Noto Sans Georgian…): Inter has no Georgian, so the labels showed as boxes.
+    #[test]
+    fn installed_georgian_fallback_draws_the_georgian_interface() {
+        if !installed('ა') {
+            eprintln!("no Georgian system font installed; skipping glyph coverage");
+            return;
+        }
+        assert_drawn("ka", "კომპოზიციაფენასაკვანძოკადრიეფექტიპარამეტრები");
     }
 
     /// egui shapes each run of one face: Arabic letters take their joined forms, and an Arabic
