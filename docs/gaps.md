@@ -72,7 +72,7 @@ are grouped by area; the issue tracker has the rest.
 | 13 | **3D model formats and materials** | After Effects 26 imports FBX, USD/USDZ, STL besides glTF and OBJ (`usd_plugins`), and Substance 3D materials with mesh displacement (26.0–26.2); we read glTF and OBJ | Product shots and 3D scenes come as FBX/USDZ | 25–45 h | — · [file-format-parity.md](file-format-parity.md) |
 | 14 | **Object Matte** (26.2, disk cache in 26.5) | Not present; MobileSAM is already in `effectcraft-segment` and could back it | The new one-click roto; Roto Brush covers part of it | 15–30 h | G7 · [target-app-parity.md](target-app-parity.md) |
 | 15 | **Hardware video decode and encode** | No VideoToolbox, NVENC, Quick Sync or VA-API; #498 asks for it; FilmCraft has VideoToolbox / NVENC / VA-API paths to borrow | 4K playback and export speed | 25–45 h | G5/G6 · [hardware-parity.md](hardware-parity.md) |
-| 16 | **Localization depth** | Menus in 6 languages; panels in 4; effect names and ~1,650 effect parameter names untranslated; French, German, Korean, Italian, Russian (After Effects ships them) absent; #599 Hangul boxes on macOS | After Effects is used heavily in Japan, China, Korea, Brazil, Europe | 60–110 h + native review | G9 · [localization-parity.md](localization-parity.md) |
+| 16 | **Localization depth** | Menus in 7 languages; panels in 5; effect names and ~1,650 effect parameter names untranslated; French, German, Korean, Italian, Russian (After Effects ships them) absent; #599 Hangul boxes on macOS | After Effects is used heavily in Japan, China, Korea, Brazil, Europe | 60–110 h + native review | G9 · [localization-parity.md](localization-parity.md) |
 | 17 | **Media Browser lists files import refuses** | `media_browser.rs` lists TGA, DPX, HDR, AVI, MXF; `media::is_importable` has none of them; #431 any image imports as a sequence; #324 MP3 goes silent | Confusing failures on common VFX formats (DPX, TGA) | 15–30 h | G6 · [file-format-parity.md](file-format-parity.md) |
 | 18 | **Relative paths and relinking** | Projects store absolute footage paths; no relink when a project moves | Moving or sharing a project breaks it | 6–12 h | G4 · [file-format-parity.md](file-format-parity.md) |
 | 19 | **Plug-in ecosystem** | No After Effects SDK hosting (#600, #327 OpenFX, #334, #376 plug-in manager); our WebAssembly API has no third-party plug-ins | Many pro projects depend on Trapcode, Element, Saber… | 40–80 h for API growth; SDK hosting needs an owner decision | G8 · [scripting-parity.md](scripting-parity.md) |
@@ -269,7 +269,8 @@ Issues #41–#47 (all from the Linux AppImage 0.1.1, 5 October): panning the vie
 
 - Localisation of the interface ([localization-parity.md](localization-parity.md)): since 6–10
   October the menus are translated into Japanese, Simplified and Traditional Chinese, Ukrainian,
-  Spanish and Brazilian Portuguese, and the panel catalog covers the first four. Next: effect and
+  Spanish, Brazilian Portuguese and Georgian, and the panel catalog covers all but Spanish and
+  Brazilian Portuguese. Next: effect and
   parameter names, the remaining panel strings, French, German and Korean, and native-speaker
   review of all of them.
 - Accessibility (keyboard navigation, screen readers, contrast), user documentation and
