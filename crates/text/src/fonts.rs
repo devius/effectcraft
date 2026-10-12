@@ -948,9 +948,7 @@ mod tests {
     fn other_scripts_fall_back_to_a_plain_system_family() {
         scan_system();
         let inter = resolve("Inter", "Regular").face;
-        for (c, families) in
-            [('م', ARABIC_FAMILIES), ('א', HEBREW_FAMILIES), ('क', INDIC_FAMILIES), ('த', INDIC_FAMILIES), ('ก', THAI_FAMILIES), ('ა', GEORGIAN_FAMILIES)]
-        {
+        for (c, families) in [('م', ARABIC_FAMILIES), ('א', HEBREW_FAMILIES), ('क', INDIC_FAMILIES), ('த', INDIC_FAMILIES), ('ก', THAI_FAMILIES)] {
             let covering = families.iter().any(|n| resolve_in(n, "Regular").is_some_and(|r| face(r.face).has_char(c)));
             if !covering {
                 eprintln!("{c}: no family from the list is installed; skipping");
@@ -960,6 +958,22 @@ mod tests {
             assert!(f.has_char(c), "{c}: {} lacks it", f.info.family);
             assert!(families.iter().any(|n| f.info.family.eq_ignore_ascii_case(n)), "{c} → {}", f.info.family);
         }
+    }
+
+    /// Native: the script search picks a Georgian family for Mkhedruli (a face already loaded
+    /// that happens to cover it, such as macOS Helvetica, still wins in `fallback_for`). Skipped
+    /// where no family from the list is installed.
+    #[test]
+    fn georgian_falls_back_to_a_georgian_system_family() {
+        scan_system();
+        let c = 'ა';
+        if !GEORGIAN_FAMILIES.iter().any(|n| resolve_in(n, "Regular").is_some_and(|r| face(r.face).has_char(c))) {
+            eprintln!("no Georgian family from the list is installed; skipping");
+            return;
+        }
+        let f = face(system_fallback(c, "Regular").unwrap());
+        assert!(f.has_char(c), "{} lacks it", f.info.family);
+        assert!(GEORGIAN_FAMILIES.iter().any(|n| f.info.family.eq_ignore_ascii_case(n)), "{c} → {}", f.info.family);
     }
 
     /// Native: Japanese text in a Latin-only family falls back to an installed Japanese family
