@@ -4131,7 +4131,7 @@ const GEORGIAN: &[(&str, &str, &str)] = &[
     ("keys.selectLabelGroup", "On All Layers", "ყველა ფენაზე"),
     ("keys.selectLabelGroup", "Visible Keyframes on Selected Layers", "ხილული საკვანძო კადრები მონიშნულ ფენებზე"),
     ("keys.selectLabelGroup", "Visible Keyframes on All Layers", "ხილული საკვანძო კადრები ყველა ფენაზე"),
-    ("", "Purge", "გასუფთავება"),
+    ("", "Purge", "გაწმენდა"),
     ("edit.purge", "All Cache...", "მთელი ქეში..."),
     ("edit.purge", "All Memory & Disk Cache...", "მთელი მეხსიერება და დისკის ქეში..."),
     ("edit.purge", "All Memory", "მთელი მეხსიერება"),
