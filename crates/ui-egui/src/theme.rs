@@ -323,6 +323,25 @@ static INTER_MEDIUM: &[u8] = include_bytes!("../../../assets/fonts/Inter-Medium.
 static INTER_SEMIBOLD: &[u8] = include_bytes!("../../../assets/fonts/Inter-SemiBold.ttf");
 static JETBRAINS_MONO: &[u8] = include_bytes!("../../../assets/fonts/JetBrainsMono-Regular.ttf");
 
+/// An interface face supplied at run time, after every other face: the web build fetches one
+/// served beside the page (e.g. Georgian, which the bundled faces lack and the browser can't lend).
+static RUNTIME_FALLBACK: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+/// The runtime face arrived and the installed fonts don't have it yet.
+static RUNTIME_FALLBACK_NEW: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Add `bytes` (a font file) as the last interface fallback; the app installs it on the next
+/// frame. Only the first call counts.
+pub fn set_runtime_fallback_font(bytes: Vec<u8>) {
+    if RUNTIME_FALLBACK.set(bytes).is_ok() {
+        RUNTIME_FALLBACK_NEW.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Whether a runtime fallback face arrived since the last call.
+pub(crate) fn take_new_runtime_fallback() -> bool {
+    RUNTIME_FALLBACK_NEW.swap(false, std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Install fonts (Inter, Inter Medium/SemiBold, JetBrains Mono) and egui visuals. `language` is the
 /// resolved interface language from [`crate::i18n::language`] (`en`, `ja`, `zh-hans` or `zh-hant`),
 /// not the stored `general.language` preference: `system` is already resolved there, so a Chinese
@@ -348,6 +367,12 @@ pub fn install(ctx: &egui::Context, t: &Tokens, language: &str) {
         }
     }
     install_script_fallbacks(&mut fonts, language);
+    if let Some(bytes) = RUNTIME_FALLBACK.get() {
+        fonts.font_data.insert("runtime-fallback".into(), Arc::new(FontData::from_static(bytes)));
+        for stack in fonts.families.values_mut() {
+            stack.push("runtime-fallback".into());
+        }
+    }
     ctx.set_fonts(fonts);
     apply_visuals(ctx, t);
 }

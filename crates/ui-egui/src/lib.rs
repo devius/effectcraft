@@ -1847,7 +1847,9 @@ impl eframe::App for EffectcraftApp {
         // Settings ▸ General ▸ Language instead of only the first frame.
         let language = crate::i18n::language(self);
         crate::i18n::set_current(language);
-        if !self.styled || self.styled_language != language {
+        // A fallback face the web page fetched (Georgian) arrived: install it too.
+        let new_face = theme::take_new_runtime_fallback();
+        if new_face || !self.styled || self.styled_language != language {
             theme::install(ctx, &self.tokens, language);
             self.styled_language = language;
             if !self.styled {

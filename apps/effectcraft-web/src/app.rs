@@ -121,6 +121,39 @@ impl eframe::App for WebApp {
     }
 }
 
+/// An interface face for scripts the bundled faces lack (Georgian), when the site serves one beside
+/// the page; without it the interface keeps the bundled faces.
+const FALLBACK_FONT_URL: &str = "fonts/NotoSansGeorgian.ttf";
+
+fn load_fallback_font() {
+    wasm_bindgen_futures::spawn_local(async {
+        match fetch_font(FALLBACK_FONT_URL).await {
+            Ok(bytes) => {
+                effectcraft_ui_egui::theme::set_runtime_fallback_font(bytes);
+                CTX.with(|c| c.borrow().as_ref().map(egui::Context::request_repaint));
+            }
+            Err(e) => log::info!("no interface fallback font at {FALLBACK_FONT_URL}: {e}"),
+        }
+    });
+}
+
+/// A font file from the site: only a TrueType/OpenType file is returned (a host may answer a
+/// missing file with its index page).
+async fn fetch_font(url: &str) -> Result<Vec<u8>, String> {
+    let js = |e: JsValue| format!("{e:?}");
+    let window = web_sys::window().ok_or("no window")?;
+    let resp: web_sys::Response = wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(url)).await.map_err(js)?.dyn_into().map_err(js)?;
+    if !resp.ok() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    let buf = wasm_bindgen_futures::JsFuture::from(resp.array_buffer().map_err(js)?).await.map_err(js)?;
+    let bytes = js_sys::Uint8Array::new(&buf).to_vec();
+    match bytes.get(..4) {
+        Some([0, 1, 0, 0] | b"OTTO" | b"true") if bytes.len() <= 32 << 20 => Ok(bytes),
+        _ => Err("not a font file".into()),
+    }
+}
+
 fn query() -> Option<web_sys::UrlSearchParams> {
     web_sys::window().and_then(|w| w.location().search().ok()).and_then(|s| web_sys::UrlSearchParams::new_with_str(&s).ok())
 }
@@ -184,6 +217,12 @@ fn install_hooks(app: &mut EffectcraftApp) {
 #[wasm_bindgen]
 pub async fn start(canvas_id: String) -> Result<(), JsValue> {
     eframe::WebLogger::init(log::LevelFilter::Info).ok();
+    // Match System follows `?lang=` in the address, then the browser's languages; a language
+    // chosen in Settings still wins.
+    let navigator = web_sys::window().map(|w| w.navigator());
+    let browser = navigator.iter().flat_map(|n| n.languages().iter().filter_map(|v| v.as_string()).collect::<Vec<_>>());
+    effectcraft_ui_egui::i18n::set_system_locales(query_value("lang").into_iter().chain(browser).collect());
+    load_fallback_font();
     let doc = web_sys::window().and_then(|w| w.document()).ok_or("no document")?;
     let canvas: web_sys::HtmlCanvasElement = doc.get_element_by_id(&canvas_id).ok_or("no canvas")?.dyn_into()?;
     let empty = query_flag("empty");
