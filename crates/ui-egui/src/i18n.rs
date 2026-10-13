@@ -154,10 +154,11 @@ pub(crate) fn label<'a>(app: &EffectcraftApp, command: &str, source: &'a str) ->
     lookup(language, command, source).unwrap_or(source)
 }
 
-/// A command's label in a menu a panel builds itself (the Timeline's and Composition panel's layer
-/// and property context menus), in the language the panels draw in: the menu bar's row for
-/// (`command`, `source`), else the panel catalog's row for `source`, else `source`. Those menus
-/// write `…` where the menu bar's sources have `...`, so either spelling finds the menu bar's row.
+/// A command's label drawn outside the menu bar (the Timeline's and Composition panel's layer and
+/// property context menus, the dock's tab titles, the workspace bar), in the language the panels
+/// draw in: the menu bar's row for (`command`, `source`), else the panel catalog's row for
+/// `source`, else `source`. Those menus write `…` where the menu bar's sources have `...`, so
+/// either spelling finds the menu bar's row.
 pub(crate) fn command_label<'a>(command: &str, source: &'a str) -> &'a str {
     let language = ui::current();
     let dotted = source.strip_suffix('…').map(|stem| format!("{stem}..."));
@@ -7309,6 +7310,21 @@ mod tests {
     use effectcraft_engine::menus::{MenuNode, TREE, parse};
     use serde_json::json;
     use std::collections::BTreeSet;
+
+    /// Labels drawn outside the menu bar take the menu bar's row for their command (with `…` for
+    /// `...`), else the panel catalog's row, else stay as they are.
+    #[test]
+    fn command_label_reads_the_menu_row_then_the_panel_row() {
+        set_current("zh-hans");
+        assert_eq!(command_label("window.panel", "Project"), "项目");
+        let (command, en, translated) =
+            SIMPLIFIED_CHINESE.iter().find(|(c, en, _)| !c.is_empty() && en.ends_with("...")).expect("a menu row ending in ...");
+        assert_eq!(command_label(command, &format!("{}…", en.trim_end_matches("..."))), *translated);
+        assert_eq!(command_label("no.such.command", "Cancel"), "取消");
+        assert_eq!(command_label("window.panel", "Comp 1"), "Comp 1");
+        set_current("en");
+        assert_eq!(command_label("window.panel", "Project"), "Project");
+    }
 
     #[test]
     fn match_system_takes_the_first_browser_language_with_a_catalog() {
