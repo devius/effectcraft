@@ -7317,8 +7317,7 @@ mod tests {
     fn command_label_reads_the_menu_row_then_the_panel_row() {
         set_current("zh-hans");
         assert_eq!(command_label("window.panel", "Project"), "项目");
-        let (command, en, translated) =
-            SIMPLIFIED_CHINESE.iter().find(|(c, en, _)| !c.is_empty() && en.ends_with("...")).expect("a menu row ending in ...");
+        let (command, en, translated) = SIMPLIFIED_CHINESE.iter().find(|(c, en, _)| !c.is_empty() && en.ends_with("...")).expect("a menu row ending in ...");
         assert_eq!(command_label(command, &format!("{}…", en.trim_end_matches("..."))), *translated);
         assert_eq!(command_label("no.such.command", "Cancel"), "取消");
         assert_eq!(command_label("window.panel", "Comp 1"), "Comp 1");
