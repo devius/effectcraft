@@ -27,8 +27,8 @@ labels; no proprietary translation resources, fonts or screenshots were used.
 - A noun stays singular after a numeral, and the catalogs have no plural forms, so counts use
   count-neutral wording: `{} minutes ago` is `{} წუთის წინ`, and `{} contributors · {} commits`
   reads `მონაწილე: {} · კომიტი: {}`.
-- Commands are verbal nouns (masdar: *შენახვა*, *გახსნა*, *ფენის წაშლა*); prompts address the user
-  politely (*დააწკაპუნეთ*, *გადაათრიეთ*). Product and format names (EffectCraft, Lottie, ProEXR,
+- Commands are verbal nouns (masdar: *შენახვა*, *გახსნა*, *შრის წაშლა*); prompts address the user
+  politely (*დაწკაპეთ*, *გადაათრიეთ*). Product and format names (EffectCraft, Lottie, ProEXR,
   OpenEXR, Finder) stay Latin, with Georgian case endings after a hyphen (`Finder-ში`).
 - Interface font: Inter has no Georgian, and the craft-fonts set has no Georgian face yet. The
   interface and text layers fall back to installed system faces: Sylfaen, SF Georgian, Arial
@@ -46,12 +46,12 @@ Follow this table when adding or changing Georgian strings.
 |---|---|
 | File / Edit / View / Window / Help | ფაილი / რედაქტირება / ჩვენება / ფანჯარა / დახმარება |
 | Composition / New Composition… | კომპოზიცია / ახალი კომპოზიცია... |
-| Layer | ფენა |
+| Layer | შრე (შრის, შრეები) |
 | Keyframe / Hold Keyframe | საკვანძო კადრი / ფიქსირებული საკვანძო კადრი |
 | Easy Ease | რბილი შენელება |
 | Footage / Interpret Footage | ვიდეომასალა / ვიდეომასალის ინტერპრეტაცია |
 | Solid / Null Object | სოლიდი / ნულოვანი ობიექტი |
-| Shape Layer / Adjustment Layer | ფიგურის ფენა / კორექციის ფენა |
+| Shape Layer / Adjustment Layer | ფიგურის შრე / კორექციის შრე |
 | Pre-compose… | კომპოზიციაში მოთავსება... |
 | Mask / New Mask | ნიღაბი / ახალი ნიღაბი |
 | Track Matte / Alpha Matte / Luma Matte | ტრეკ-მატი / ალფა-მატი / ლუმა-მატი |

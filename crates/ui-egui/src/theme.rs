@@ -592,7 +592,7 @@ mod script_font_tests {
             eprintln!("no Georgian system font installed; skipping glyph coverage");
             return;
         }
-        assert_drawn("ka", "კომპოზიციაფენასაკვანძოკადრიეფექტიპარამეტრები");
+        assert_drawn("ka", "კომპოზიციაშრესაკვანძოკადრიეფექტიპარამეტრები");
     }
 
     /// egui shapes each run of one face: Arabic letters take their joined forms, and an Arabic
