@@ -3358,7 +3358,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Name", "სახელი"),
     ("Name:", "სახელი:"),
     ("Navigation", "ნავიგაცია"),
-    ("New", "შექმნა"),
+    ("New", "ახალი"),
     ("New Comp from Selection", "ახალი კომპოზიცია მონიშნულიდან"),
     ("New Duration:", "ახალი ხანგრძლივობა:"),
     ("New composition name:", "ახალი კომპოზიციის სახელი:"),
