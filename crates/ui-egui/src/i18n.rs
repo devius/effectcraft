@@ -6708,6 +6708,7 @@ const GEORGIAN: &[(&str, &str, &str)] = &[
     ("file.import", "File...", "ფაილი..."),
     ("file.importMultiple", "Multiple Files...", "რამდენიმე ფაილი..."),
     ("file.importTimeline", "Adobe Premiere Pro Project...", "Adobe Premiere Pro-ს პროექტი..."),
+    ("file.importProject", "EffectCraft Project...", "EffectCraft-ის პროექტი..."),
     ("file.importPlaceholder", "Placeholder...", "ჩანაცვლების ობიექტი..."),
     ("file.importSolid", "Solid...", "სოლიდი..."),
     ("file.importLottie", "Lottie...", "Lottie..."),
@@ -7182,6 +7183,9 @@ const GEORGIAN: &[(&str, &str, &str)] = &[
     ("view.snapToGuides", "Snap to Guides", "დამხმარე ხაზებზე მიბმა"),
     ("view.lockGuides", "Lock Guides", "დამხმარე ხაზების ჩაკეტვა"),
     ("view.addGuide", "Add Guide...", "დამხმარე ხაზის დამატება..."),
+    ("view.addPercentGuide", "Add Percentage Guide...", "პროცენტული დამხმარე ხაზის დამატება..."),
+    ("view.convertGuides", "Convert Guides to Percentage", "დამხმარე ხაზების პროცენტულად გარდაქმნა"),
+    ("view.convertGuides", "Convert Guides to Pixels", "დამხმარე ხაზების პიქსელებად გარდაქმნა"),
     ("view.clearGuides", "Clear Guides", "დამხმარე ხაზების გასუფთავება"),
     ("view.importGuides", "Import Guides...", "დამხმარე ხაზების იმპორტი..."),
     ("view.exportGuides", "Export Guides...", "დამხმარე ხაზების ექსპორტი..."),
@@ -7870,11 +7874,12 @@ mod tests {
         assert_eq!(label(&app, "anim.addKeyframe", "Add Keyframe"), "საკვანძო კადრის დამატება");
         assert_eq!(label(&app, "unknown.command", "Text"), "Text");
         assert!(ka.items().iter().any(|i| i.command == "keys.easyEase" && i.label == "რბილი შენელება"));
-        let undo = MenuEntry { label: "Undo".into(), command: "edit.undo".into(), params: json!({}), shortcut: None };
+        let undo = MenuEntry { label: "Undo".into(), command: "edit.undo".into(), params: json!({}), shortcut: None, alt_shortcuts: vec![] };
         assert_eq!(entry(&app, &undo, "Can't Undo".into()), "დაბრუნება შეუძლებელია");
         app.session.history.undo.push(("Comp 1".into(), app.session.project.clone()));
         assert_eq!(entry(&app, &undo, "Undo Comp 1".into()), "დაბრუნება: Comp 1");
-        let panel = MenuEntry { label: "Layer".into(), command: "window.panel".into(), params: json!({"panel":"layer"}), shortcut: None };
+        let panel =
+            MenuEntry { label: "Layer".into(), command: "window.panel".into(), params: json!({"panel":"layer"}), shortcut: None, alt_shortcuts: vec![] };
         assert_eq!(entry(&app, &panel, "Layer: File".into()), "შრე: File");
         assert_eq!(
             submenu(&app, "Assign Shortcut to Workspace", "Assign Shortcut to “Default” Workspace".into()),
