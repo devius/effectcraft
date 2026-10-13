@@ -3121,6 +3121,9 @@ const CZECH: &[(&str, &str)] = &[
 
 /// Georgian (ka): every row of the Chinese catalogs, in the same order (the tests keep them in step).
 const GEORGIAN: &[(&str, &str)] = &[
+    ("Appearance Settings…", "იერსახის პარამეტრები…"),
+    ("Add to favorites", "რჩეულებში დამატება"),
+    ("Remove from favorites", "რჩეულებიდან ამოშლა"),
     ("   OK   ", "   OK   "),
     ("  Delete  ", "  წაშლა  "),
     (" Open Auto-Save ", " ავტოშენახვის გახსნა "),
@@ -3187,6 +3190,10 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Clear", "გასუფთავება"),
     ("Clear list", "სიის გასუფთავება"),
     ("Click a key to see its commands.", "დააწკაპუნეთ კლავიშზე მისი ბრძანებების სანახავად."),
+    (
+        "Click above the bar to add an opacity stop, below it to add a color stop.",
+        "დააწკაპუნეთ ზოლის ზემოთ გაუმჭვირვალობის წერტილის დასამატებლად, ქვემოთ — ფერის წერტილის დასამატებლად.",
+    ),
     ("Click adds a point (½ height = no change)", "დაწკაპუნება ამატებს წერტილს (½ სიმაღლე = ცვლილების გარეშე)"),
     ("Click adds a point; drag one off to remove", "დაწკაპუნება ამატებს წერტილს; მის მოსაშორებლად გადაათრიეთ გარეთ"),
     ("Click to make this viewer active", "დააწკაპუნეთ ამ დამთვალიერებელის გასააქტიურებლად"),
@@ -3283,6 +3290,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Frame Target:", "კადრის სამიზნე:"),
     ("Freeze", "გაყინვა"),
     ("Grab bag", "სხვადასხვა"),
+    ("Gradient Editor", "გრადიენტის რედაქტორი"),
     ("Grid", "ბადე"),
     ("Guide Layers: {}", "დამხმარე ფენები: {}"),
     ("Guides", "დამხმარე ხაზები"),
@@ -3321,6 +3329,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Light Type", "სინათლის ტიპი"),
     ("Lighter", "უფრო ღია"),
     ("Link Selected Property", "მონიშნული თვისების დაკავშირება"),
+    ("Location:", "მდებარეობა:"),
     ("Lock Aspect Ratio to {}", "გვერდების თანაფარდობის ჩაკეტვა: {}"),
     ("Lock to Zoom", "მასშტაბზე მიბმა"),
     ("Locked: {} — {}", "ჩაკეტილი: {} — {}"),
@@ -3372,6 +3381,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("No layer selected", "ფენა არ არის მონიშნული"),
     ("No matching effects or presets", "შესაბამისი ეფექტები ან პრესეტები არ მოიძებნა"),
     ("No matching fonts", "შესაბამისი შრიფტები არ მოიძებნა"),
+    ("Variable fonts only", "მხოლოდ ცვლადი შრიფტები"),
     ("No model credits were built into this copy.", "ამ ასლში მოდელების მონაცემები არ არის ჩაშენებული."),
     ("No nested compositions", "ჩადგმული კომპოზიციები არ არის"),
     ("No shortcut", "მალსახმობის გარეშე"),
@@ -3515,6 +3525,10 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("The Media Browser is not available here (use File ▸ Import)", "მედიის ბრაუზერი აქ მიუწვდომელია (გამოიყენეთ ფაილი ▸ იმპორტი)"),
     ("The OpenEXR layer shown in red, green, blue and alpha", "OpenEXR ფენა წითლად, მწვანედ, ლურჯად და ალფად"),
     ("The render queue is empty.", "რენდერის რიგი ცარიელია."),
+    (
+        "These adjacent keyframes cannot interpolate because their stop counts differ.",
+        "ამ მეზობელ საკვანძო კადრებს შორის ინტერპოლაცია შეუძლებელია, რადგან მათ გრადიენტის წერტილების განსხვავებული რაოდენობა აქვთ.",
+    ),
     ("This ScriptUI panel has closed", "ეს ScriptUI პანელი დაიხურა"),
     ("This change will create a new solid for this layer.", "ეს ცვლილება ამ ფენისთვის ახალ სოლიდს შექმნის."),
     ("Time", "დრო"),
@@ -3537,6 +3551,8 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Type a command or effect…", "აკრიფეთ ბრძანება ან ეფექტი…"),
     ("URL:", "URL:"),
     ("Undock Panel", "პანელის მოხსნა"),
+    ("Move Panel to New Window", "პანელის ახალ ფანჯარაში გადატანა"),
+    ("Move Panel to Main Window", "პანელის მთავარ ფანჯარაში გადატანა"),
     ("Unfreeze", "გაყინვის მოხსნა"),
     ("Unlink {}", "{}-ის კავშირის გაწყვეტა"),
     (
