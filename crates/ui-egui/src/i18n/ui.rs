@@ -56,7 +56,8 @@ fn catalog(language: &str) -> Option<&'static Index> {
         "pt-br" => (&PT_BR, PORTUGUESE),
         "cs" => (&CS, CZECH),
         "es" => (&ES, SPANISH),
-        "ka" => (&KA, GEORGIAN),
+        // Georgian also reads its own rows for text the other catalogs don't have yet.
+        "ka" => return Some(KA.get_or_init(|| GEORGIAN.iter().chain(GEORGIAN_PANELS).copied().collect())),
         _ => return None,
     };
     Some(index.get_or_init(|| rows.iter().copied().collect()))
@@ -4944,6 +4945,200 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Track", "ტრეკინგი"),
 ];
 
+/// Georgian rows for interface text no other catalog has yet: strings the panels already send
+/// through [`tr`] (form fields and titles, drop messages, screen-reader names) and the labels of
+/// the Timeline's context menus. Kept apart from [`GEORGIAN`] so that table can keep listing
+/// exactly the Chinese catalogs' sources; the tests hold these to the same rules.
+const GEORGIAN_PANELS: &[(&str, &str)] = &[
+    ("Original color: click to go back to it", "საწყისი ფერი: დაწკაპეთ მასზე დასაბრუნებლად"),
+    ("Resize floating panel", "მცურავი პანელის ზომის შეცვლა"),
+    ("Render every n-th pixel", "ყოველი n-ური პიქსელის რენდერი"),
+    ("Color (#rrggbb)", "ფერი (#rrggbb)"),
+    ("Workspace", "სამუშაო სივრცე"),
+    ("Rename to", "ახალი სახელი"),
+    ("Open", "გახსნა"),
+    ("Custom Resolution", "მორგებული გარჩევადობა"),
+    ("Panel Background Color", "პანელის ფონის ფერი"),
+    ("New Workspace", "ახალი სამუშაო სივრცე"),
+    ("Edit Workspaces", "სამუშაო სივრცეების რედაქტირება"),
+    ("A script wants to open a file", "სკრიპტს ფაილის გახსნა სურს"),
+    ("Drop file to import", "ჩააგდეთ ფაილი იმპორტისთვის"),
+    ("Drop {} files to import", "ჩააგდეთ ფაილები იმპორტისთვის: {}"),
+    (
+        "Skipped {} dropped file(s) without a local path. Use File ▸ Import ▸ File…",
+        "გამოტოვებულია ჩაგდებული ფაილი ლოკალური მისამართის გარეშე: {}. გამოიყენეთ ფაილი ▸ იმპორტი ▸ ფაილი…",
+    ),
+    ("Only one project can be opened per drop; skipped {} more", "ერთ ჩაგდებაზე მხოლოდ ერთი პროექტი იხსნება; გამოტოვებულია კიდევ: {}"),
+    ("Cannot open dropped project {}: {}", "ჩაგდებული პროექტის გახსნა შეუძლებელია, {}: {}"),
+    ("Cannot import dropped files: {}", "ჩაგდებული ფაილების იმპორტი შეუძლებელია: {}"),
+    ("A built-in preset has this name", "ამ სახელით ჩაშენებული პრესეტი არსებობს"),
+    ("Replaces your preset with this name", "ჩაანაცვლებს თქვენს პრესეტს ამ სახელით"),
+    ("Save Preset…", "პრესეტის შენახვა…"),
+    ("Delete Preset", "პრესეტის წაშლა"),
+    ("Null Settings", "ნულოვანი ობიექტის პარამეტრები"),
+    ("Click to sample text {}", "დაწკაპეთ ტექსტის ნიმუშის ასაღებად {}"),
+    ("Force alphabetical order", "ანბანური რიგის იძულება"),
+    ("Frame rate (fps)", "კადრების სიხშირე (fps)"),
+    (
+        "Change the frame rate, alpha and start frame later with File ▸ Interpret Footage.",
+        "კადრების სიხშირე, ალფა და საწყისი კადრი მოგვიანებით შეცვალეთ: ფაილი ▸ ვიდეომასალის ინტერპრეტაცია.",
+    ),
+    ("Import Kind", "იმპორტის სახე"),
+    ("Page", "გვერდი"),
+    ("Delay (s)", "დაყოვნება (წმ)"),
+    ("Amount (%)", "რაოდენობა (%)"),
+    ("Cascade (farther pins trail longer)", "კასკადი (შორეული სამაგრები უფრო დიდხანს ჩამორჩება)"),
+    ("Speed (%)", "სიჩქარე (%)"),
+    ("Smoothing", "დაგლუვება"),
+    ("Use Draft Deformation", "მონახაზის დეფორმაციის გამოყენება"),
+    ("Show Mesh", "ბადის ჩვენება"),
+    ("Scale X (%)", "მასშტაბი X (%)"),
+    ("Scale Y (%)", "მასშტაბი Y (%)"),
+    ("Rotation (degrees)", "შემობრუნება (გრადუსი)"),
+    ("Move X", "გადაადგილება X"),
+    ("Move Y", "გადაადგილება Y"),
+    ("Top", "ზემოდან"),
+    ("Width", "სიგანე"),
+    ("Height", "სიმაღლე"),
+    ("Shape", "ფიგურა"),
+    ("Mode", "რეჟიმი"),
+    ("Frame", "კადრი"),
+    ("Orientation", "ორიენტაცია"),
+    ("Position (pixels)", "პოზიცია (პიქსელი)"),
+    ("Position (percent of the composition)", "პოზიცია (კომპოზიციის პროცენტი)"),
+    ("Create", "შექმნა"),
+    ("Use Dimensions From", "ზომების აღება"),
+    ("Still Duration (seconds)", "უძრავი კადრის ხანგრძლივობა (წამი)"),
+    ("Add to Render Queue", "რენდერის რიგში დამატება"),
+    ("Sequence Layers", "შრეების თანმიმდევრობით განლაგება"),
+    ("Overlap", "გადაფარვა"),
+    ("Duration (seconds)", "ხანგრძლივობა (წამი)"),
+    ("Transition", "გადასვლა"),
+    ("Matte color (premultiplied)", "მატის ფერი (წინასწარ გამრავლებული)"),
+    ("Invert Alpha", "ალფას ინვერსია"),
+    ("Assume this frame rate", "ამ კადრების სიხშირის გამოყენება"),
+    ("Separate Fields", "ნახევარკადრების გაყოფა"),
+    ("Pixel Aspect Ratio", "პიქსელის გვერდების თანაფარდობა"),
+    ("Loop (times)", "ციკლი (ჯერ)"),
+    ("Assign Profile", "პროფილის მინიჭება"),
+    ("Preserve RGB", "RGB-ის შენარჩუნება"),
+    ("Interpret As Linear Light", "წრფივ სინათლედ ინტერპრეტაცია"),
+    ("Start Timecode", "საწყისი თაიმკოდი"),
+    ("Override Start", "დასაწყისის ხელით მითითება"),
+    ("Depth", "სიღრმე"),
+    ("Time display style", "დროის ჩვენების სტილი"),
+    ("Color engine", "ფერთა ძრავა"),
+    ("Working space", "სამუშაო სივრცე"),
+    ("Working gamma", "სამუშაო გამა"),
+    ("Linearize working space", "სამუშაო სივრცის წრფივად გარდაქმნა"),
+    ("Blend colors using 1.0 gamma", "ფერების შერევა 1.0 გამით"),
+    ("HDR on SDR displays and outputs", "HDR SDR ეკრანებსა და გამოტანებზე"),
+    ("Output color space", "გამოტანის ფერთა სივრცე"),
+    ("Video rendering and effects", "ვიდეოს რენდერი და ეფექტები"),
+    ("Time Span", "დროის მონაკვეთი"),
+    ("Invert", "ინვერსია"),
+    ("Blur (pixels before auto-trace)", "გაბუნდოვნება (პიქსელი, ვექტორიზაციამდე)"),
+    ("Tolerance (pixels)", "დაშვება (პიქსელი)"),
+    ("Threshold (%)", "ზღვარი (%)"),
+    ("Minimum Area (pixels)", "მინიმალური ფართობი (პიქსელი)"),
+    ("Corner Roundness (%)", "კუთხეების მომრგვალება (%)"),
+    ("Apply To New Layer", "ახალ შრეზე გამოყენება"),
+    ("Action", "მოქმედება"),
+    ("Sensitivity threshold (0–1, lower finds more)", "მგრძნობელობის ზღვარი (0–1, ნაკლები მეტს პოულობს)"),
+    ("Data", "მონაცემები"),
+    ("Time field (empty: automatic)", "დროის ველი (ცარიელი: ავტომატური)"),
+    ("Video start (ISO date-time, hh:mm:ss, timecode; empty: file date)", "ვიდეოს დასაწყისი (ISO თარიღი-დრო, hh:mm:ss, თაიმკოდი; ცარიელი: ფაილის თარიღი)"),
+    ("First sample at (comp seconds)", "პირველი ნიმუში (კომპოზიციის წამი)"),
+    (
+        "Writes Final Cut Pro XML (.xml), which Premiere Pro opens with File ▸ Import. Native .prproj files are not written.",
+        "იწერს Final Cut Pro XML-ს (.xml), რომელსაც Premiere Pro ხსნის ბრძანებით File ▸ Import. მშობლიური .prproj ფაილები არ იწერება.",
+    ),
+    ("File", "ფაილი"),
+    ("Format", "ფორმატი"),
+    ("Pre-render (ProRes 4444)", "წინასწარი რენდერი (ProRes 4444)"),
+    ("Precomps", "ჩადგმული კომპოზიციები"),
+    ("Frame rate", "კადრების სიხშირე"),
+    ("Description", "აღწერა"),
+    ("Category", "კატეგორია"),
+    ("Embed footage files", "ვიდეომასალის ფაილების ჩაშენება"),
+    ("Embed up to (MB)", "ჩაშენება მაქსიმუმ (MB)"),
+    ("Use the sRGB curve (ignore Gamma)", "sRGB მრუდის გამოყენება (გამის უგულებელყოფა)"),
+    ("ICC profile (replaces the numbers)", "ICC პროფილი (ცვლის რიცხვებს)"),
+    ("Rectangle", "მართკუთხედი"),
+    ("Ellipse", "ელიფსი"),
+    ("Orient Along Path", "ორიენტაცია ტრაექტორიის გასწვრივ"),
+    ("Orient Towards Camera", "ორიენტაცია კამერისკენ"),
+    ("Orient Towards Point of Interest", "ორიენტაცია ინტერესის წერტილისკენ"),
+    ("Single Composition", "ერთი კომპოზიცია"),
+    ("Multiple Compositions", "რამდენიმე კომპოზიცია"),
+    ("Dissolve Front Layer", "წინა შრის გადადნობა"),
+    ("Cross Dissolve Front and Back Layers", "წინა და უკანა შრეების ჯვარედინი გადადნობა"),
+    ("Interpret Straight - Unmatted", "პირდაპირად ინტერპრეტაცია - მატის გარეშე"),
+    ("Interpret Premultiplied - Matted With Color", "წინასწარ გამრავლებულად ინტერპრეტაცია - ფერით მატირებული"),
+    ("Upper Field First", "ჯერ ზედა ნახევარკადრი"),
+    ("Lower Field First", "ჯერ ქვედა ნახევარკადრი"),
+    ("Embedded / sRGB", "ჩაშენებული / sRGB"),
+    ("Use Source File Timecode", "წყარო ფაილის თაიმკოდის გამოყენება"),
+    ("Timecode", "თაიმკოდი"),
+    ("Frames", "კადრები"),
+    ("Feet + Frames (35mm)", "ფუტი + კადრი (35 მმ)"),
+    ("Feet + Frames (16mm)", "ფუტი + კადრი (16 მმ)"),
+    ("Clip", "მოჭრა"),
+    ("Compand", "კომპანდირება"),
+    ("Current Frame", "მიმდინარე კადრი"),
+    ("Work Area", "სამუშაო არე"),
+    ("Luminance", "სიკაშკაშე"),
+    ("Create Markers", "მარკერების შექმნა"),
+    ("Split Layers", "შრეების დაყოფა"),
+    ("Split and Precompose", "დაყოფა და კომპოზიციაში მოთავსება"),
+    ("CMX 3600 EDL (.edl, V1 only)", "CMX 3600 EDL (.edl, მხოლოდ V1)"),
+    ("OMF (.omf, audio)", "OMF (.omf, აუდიო)"),
+    ("Layers Premiere can't show (text, shapes, effects…)", "შრეები, რომლებსაც Premiere ვერ აჩვენებს (ტექსტი, ფიგურები, ეფექტები…)"),
+    ("All layers", "ყველა შრე"),
+    ("None (leave them out)", "არცერთი (გამოტოვება)"),
+    ("Nested sequences", "ჩადგმული სეკვენციები"),
+    ("Pre-render", "წინასწარი რენდერი"),
+    ("Puppet Follow-Through", "მარიონეტის ინერციული მოძრაობა"),
+    ("Puppet Record Options", "მარიონეტის ჩაწერის პარამეტრები"),
+    ("Free Transform Points", "წერტილების თავისუფალი გარდაქმნა"),
+    ("Mask Shape", "ნიღბის ფორმა"),
+    ("Auto-Orientation", "ავტოორიენტაცია"),
+    ("Go to Time", "დროზე გადასვლა"),
+    ("Add Guide", "დამხმარე ხაზის დამატება"),
+    ("Add Percentage Guide", "პროცენტული დამხმარე ხაზის დამატება"),
+    ("New Composition from Selection", "ახალი კომპოზიცია მონიშნულიდან"),
+    ("Project Settings", "პროექტის პარამეტრები"),
+    ("Auto-trace", "ავტომატური ვექტორიზაცია"),
+    ("Scene Edit Detection", "სცენების ჭრილების ამოცნობა"),
+    ("Align Video to Data", "ვიდეოს მონაცემებთან სწორება"),
+    ("Export Adobe Premiere Pro Project", "Adobe Premiere Pro-ს პროექტის ექსპორტი"),
+    ("New Placeholder", "ახალი ჩანაცვლების ობიექტი"),
+    ("Solid Settings", "სოლიდის პარამეტრები"),
+    ("Save as Template", "შაბლონად შენახვა"),
+    ("My Custom RGB", "ჩემი მორგებული RGB"),
+    ("Mercury GPU Acceleration (no GPU: software)", "Mercury GPU აჩქარება (GPU არ არის: პროგრამული)"),
+    ("Sort by {}, {}", "დალაგება: {}, {}"),
+    ("Sort by {}", "დალაგება: {}"),
+    ("Label of {}: {}", "{}-ის იარლიყი: {}"),
+    ("Comment of {}: {}", "{}-ის კომენტარი: {}"),
+    ("Project color depth: {}", "პროექტის ფერის სიღრმე: {}"),
+    ("Start (s)", "დასაწყისი (წმ)"),
+    ("Duration (s)", "ხანგრძლივობა (წმ)"),
+    ("Frames per second", "კადრი წამში"),
+    ("Bottom", "ქვემოდან"),
+    ("Bitrate (kbps)", "ბიტრეიტი (kbps)"),
+    ("Frames between key frames (0 = every 2 s)", "კადრები საკვანძო კადრებს შორის (0 = ყოველ 2 წმ-ში)"),
+    ("Click in the Composition panel to sample text {}", "დაწკაპეთ კომპოზიციის პანელში ტექსტის ნიმუშის ასაღებად {}"),
+    ("Video preview off: audio only", "ვიდეოს წინასწარი ნახვა გამორთულია: მხოლოდ აუდიო"),
+    ("Open in Essential Graphics", "ძირითად გრაფიკაში გახსნა"),
+    ("Effects", "ეფექტები"),
+    ("Video preview is off (Preview panel): audio only", "ვიდეოს წინასწარი ნახვა გამორთულია (წინასწარი ნახვის პანელი): მხოლოდ აუდიო"),
+    ("Solid…", "სოლიდი…"),
+    ("Freeze on Last Frame", "ბოლო კადრზე გაყინვა"),
+    ("Edit Value…", "მნიშვნელობის რედაქტირება…"),
+    ("Remove Expression", "ექსპრესიის მოცილება"),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4953,8 +5148,10 @@ mod tests {
     const CONVERTED: &[(&str, &str)] = &[
         ("color_picker.rs", include_str!("../color_picker.rs")),
         ("credits.rs", include_str!("../credits.rs")),
+        ("dock_ui.rs", include_str!("../dock_ui.rs")),
         ("header.rs", include_str!("../header.rs")),
         ("menus.rs", include_str!("../menus.rs")),
+        ("prefs_live.rs", include_str!("../prefs_live.rs")),
         ("widgets.rs", include_str!("../widgets.rs")),
         ("panels/anim_tools.rs", include_str!("../panels/anim_tools.rs")),
         ("panels/camera_tracker_ui.rs", include_str!("../panels/camera_tracker_ui.rs")),
@@ -5047,6 +5244,7 @@ mod tests {
             .chain(CZECH.iter().copied())
             .chain(SPANISH.iter().copied())
             .chain(GEORGIAN.iter().copied())
+            .chain(GEORGIAN_PANELS.iter().copied())
             .collect()
     }
 
@@ -5078,6 +5276,13 @@ mod tests {
         assert_eq!(hans, hant, "the two Chinese catalogs list different source strings");
         let ka: Vec<&str> = GEORGIAN.iter().map(|(en, _)| *en).collect();
         assert_eq!(hans, ka, "the Georgian catalog lists different source strings from the Chinese ones");
+        let ka_panels: Vec<&str> = GEORGIAN_PANELS.iter().map(|(en, _)| *en).collect();
+        let shared: Vec<&str> = ka_panels.iter().copied().filter(|en| hans.contains(en)).collect();
+        assert!(shared.is_empty(), "Georgian-only rows the Chinese catalogs have too (move them to GEORGIAN): {shared:?}");
+        let mut own = ka_panels.clone();
+        own.sort_unstable();
+        own.dedup();
+        assert_eq!(own.len(), ka_panels.len(), "a Georgian-only source string is listed twice");
         // Japanese, Ukrainian and Czech may lag the Chinese catalogs: a missing row falls back to English.
         for (name, cat) in [("Japanese", JAPANESE), ("Ukrainian", UKRAINIAN), ("Brazilian Portuguese", PORTUGUESE), ("Czech", CZECH), ("Spanish", SPANISH)] {
             let extra: Vec<&str> = cat.iter().map(|(en, _)| *en).filter(|en| !hans.contains(en)).collect();
@@ -5158,6 +5363,10 @@ mod tests {
         assert_eq!(tr("my layer.mp4"), "my layer.mp4");
         assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "ნაბიჯი 1 / 3: Colour");
         assert_eq!(tr_args("{} minutes ago", &[&5]), "5 წუთის წინ");
+        // A Georgian-only row (GEORGIAN_PANELS), which other languages still draw in English.
+        assert_eq!(tr("Solid Settings"), "სოლიდის პარამეტრები");
+        set_current("cs");
+        assert_eq!(tr("Solid Settings"), "Solid Settings");
         set_current("en");
     }
 

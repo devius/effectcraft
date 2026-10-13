@@ -151,26 +151,37 @@ pub(crate) fn label<'a>(app: &EffectcraftApp, command: &str, source: &'a str) ->
             _ => {}
         }
     }
-    match language {
-        "ja" => lookup(JAPANESE, command, source),
-        "zh-hans" => lookup(SIMPLIFIED_CHINESE, command, source),
-        "zh-hant" => lookup(TRADITIONAL_CHINESE, command, source),
-        "uk" => lookup(UKRAINIAN, command, source),
-        "es" => lookup(SPANISH, command, source),
-        "pt-br" => lookup(PORTUGUESE, command, source),
-        "ru" => lookup(RUSSIAN, command, source),
-        "fr" => lookup(FRENCH, command, source),
-        "de" => lookup(GERMAN, command, source),
-        "cs" => lookup(CZECH, command, source),
-        "ka" => lookup(GEORGIAN, command, source),
-        _ => source,
-    }
+    lookup(language, command, source).unwrap_or(source)
 }
 
-/// `source` looked up in `catalog` by (command, English label); the source itself when the pair is
+/// A command's label in a menu a panel builds itself (the Timeline's and Composition panel's layer
+/// and property context menus), in the language the panels draw in: the menu bar's row for
+/// (`command`, `source`), else the panel catalog's row for `source`, else `source`. Those menus
+/// write `…` where the menu bar's sources have `...`, so either spelling finds the menu bar's row.
+pub(crate) fn command_label<'a>(command: &str, source: &'a str) -> &'a str {
+    let language = ui::current();
+    let dotted = source.strip_suffix('…').map(|stem| format!("{stem}..."));
+    lookup(language, command, source).or_else(|| lookup(language, command, dotted.as_deref()?)).unwrap_or_else(|| tr(source))
+}
+
+/// The row for (command, English label) in `language`'s menu catalog; `None` when the pair is
 /// absent, so computed labels and user names stay verbatim.
-fn lookup<'a>(catalog: &[(&str, &str, &'a str)], command: &str, source: &'a str) -> &'a str {
-    catalog.iter().find(|(id, en, _)| *id == command && *en == source).map(|(_, _, translated)| *translated).unwrap_or(source)
+fn lookup(language: &str, command: &str, source: &str) -> Option<&'static str> {
+    let catalog = match language {
+        "ja" => JAPANESE,
+        "zh-hans" => SIMPLIFIED_CHINESE,
+        "zh-hant" => TRADITIONAL_CHINESE,
+        "uk" => UKRAINIAN,
+        "es" => SPANISH,
+        "pt-br" => PORTUGUESE,
+        "ru" => RUSSIAN,
+        "fr" => FRENCH,
+        "de" => GERMAN,
+        "cs" => CZECH,
+        "ka" => GEORGIAN,
+        _ => return None,
+    };
+    catalog.iter().find(|(id, en, _)| *id == command && *en == source).map(|(_, _, translated)| *translated)
 }
 
 pub(crate) fn entry(app: &EffectcraftApp, e: &MenuEntry, shown: String) -> String {

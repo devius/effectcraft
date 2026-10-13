@@ -1,6 +1,6 @@
 # Georgian interface
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-13 · **Change:** minor (Georgian localization notes and terminology) · **Target:** Adobe After Effects 2026
+> **Last reviewed:** 2026-10-14 · **Last updated:** 2026-10-14 · **Change:** minor (synced with upstream: settings pages, effect names, Georgian-only panel rows) · **Target:** Adobe After Effects 2026
 
 Choose **Settings ▸ General ▸ Language ▸ ქართული** (in Georgian: **პარამეტრები ▸ ზოგადი ▸ ენა**),
 or leave the language on **Match System** with a Georgian system display language (`ka`, `ka-GE`,
@@ -9,12 +9,14 @@ or leave the language on **Match System** with a Georgian system display languag
 The browser build has no system locale, so there Georgian has to be chosen in Settings. Project
 content, layer and composition names, command ids and CLI/MCP/control responses do not change.
 
-The Georgian catalogs cover every fixed menu entry (`crates/ui-egui/src/i18n.rs`, `GEORGIAN`, 624
-entries with the same (command, English label) keys as Japanese) and every panel, dialog, button
-and tooltip string of the Chinese panel catalogs (`crates/ui-egui/src/i18n/ui.rs`, `GEORGIAN`, 506
-rows in the same order). The macOS application menu (Services, Hide, Hide Others, Show All), Undo /
+The Georgian catalogs cover every fixed menu entry (`crates/ui-egui/src/i18n.rs`, `GEORGIAN`, 628
+entries with the same (command, English label) keys as Japanese), every panel, dialog, button
+and tooltip string of the Chinese panel catalogs (`crates/ui-egui/src/i18n/ui.rs`, `GEORGIAN`, 687
+rows in the same order), 178 more rows no other catalog has yet (`GEORGIAN_PANELS`: form dialogs,
+drop messages, the Timeline's context menus) and every effect name and category
+(`crates/ui-egui/src/i18n/effects.rs`, 307 + 21; the `CC` series and brand names stay in English). The macOS application menu (Services, Hide, Hide Others, Show All), Undo /
 Redo with the history's action name (`დაბრუნება: Comp 1`) and the platform file manager in
-"Reveal in …" are translated too. Effect names and their parameters, engine-generated text
+"Reveal in …" are translated too. Effect parameter names, engine-generated text
 (property names, errors, undo labels), strings no catalog has yet and documentation stay in
 English, as in every language. Translations are written from the meaning of EffectCraft's English
 labels; no proprietary translation resources, fonts or screenshots were used.
@@ -78,7 +80,9 @@ Follow this table when adding or changing Georgian strings.
 Add Georgian with every new English string: a `(command, English, Georgian)` row in `GEORGIAN` in
 `crates/ui-egui/src/i18n.rs` for a fixed menu entry, and an `(English, Georgian)` row in
 `GEORGIAN` in `crates/ui-egui/src/i18n/ui.rs` at the same position as in the Chinese catalogs for
-a panel string. Keep `{}` placeholders and their order, `...` and `…`, `\n`, shortcut text and
+a panel string (in `GEORGIAN_PANELS` when no Chinese row exists yet; a Chinese row arriving
+upstream moves it into `GEORGIAN`), and an `(id, English, Georgian)` row in `GEORGIAN` in
+`crates/ui-egui/src/i18n/effects.rs` for a new effect. Keep `{}` placeholders and their order, `...` and `…`, `\n`, shortcut text and
 leading or trailing spaces exactly as in the source. `cargo test -p effectcraft-ui-egui --lib
 i18n` checks that the menu keys match Japanese, that the panel rows match the Chinese catalogs one
 for one, that ellipses and placeholders survive, Georgian locale tags (`ka`, `ka-GE`,
@@ -89,4 +93,5 @@ macOS application menu.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Synced with upstream: 628 menu entries, 687 + 178 panel rows, effect names and categories |
 | 2026-10-13 | minor | Georgian localization notes and terminology; catalogs synced with upstream (624 menu entries, 506 panel rows) |

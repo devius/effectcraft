@@ -84,7 +84,7 @@ Other languages EffectCraft ships (4):
 | Traditional Chinese | `zh-hant` | 1,130 (≈ 29%): menus 624 rows, panels 506 | partial | 6–9 h + review |
 | Ukrainian | `uk` | 1,129 (≈ 29%): menus 624 rows, panels 505 | partial | 6–9 h + review |
 | Czech | `cs` | 1,125 (≈ 29%): menus 624 rows, panels 501 | Existing catalog entries covered; unwrapped UI, effects and engine text still in English; AI-assisted, not yet native-speaker proofread | Remaining strings + independent native review |
-| Georgian | `ka` | KA_TOTAL (≈ 29%): menus 624 rows, panels KA_PANELS, effect names 306 | partial | 6–9 h + review |
+| Georgian | `ka` | 1,493 (≈ 38%) at the 2026-10-14 sync: menus 628 rows, panels 865 (the Chinese catalogs' 687 plus 178 Georgian-only rows: form dialogs, Timeline context menus), effect names 307 + 21 categories | partial | 5–8 h + review |
 
 Russian (`ru`) has a menu catalog (624 rows, ≈ 16%); After Effects also ships Italian, which EffectCraft does not (8–12 h).
 
@@ -106,6 +106,7 @@ can give; none has had it.
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | Recounted: Russian, French, German and Czech menus (#873, #987), Brazilian Portuguese and Czech panels (#830, #987), Hangul probe (#599); overall ≈ 12% to ≈ 18%; Korean and Italian still absent |
+| 2026-10-14 | minor | Georgian (`ka`) synced with upstream: menus 628, panels 865 (178 Georgian-only, in `GEORGIAN_PANELS`), effect names and categories in `effects.rs`; the Timeline / Composition layer and property context menus now ask the menu catalog (`i18n::command_label`) |
 | 2026-10-12 | minor | Georgian (`ka`): all 618 menu entries and all 496 panel-catalog strings; Georgian system font fallback |
 | 2026-10-10 | major | First localization parity document: catalog rows counted for all six languages, the twelve-language table, After Effects' 11 shipped languages from its bundle |
 | 2026-10-11 | minor | Ukrainian panel catalog brought level with the Chinese ones (495 of 496 rows, counted at this commit); its share rises to ≈ 29%. The other languages' panel counts are the 10 October measurement |
