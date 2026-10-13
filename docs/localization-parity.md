@@ -45,7 +45,8 @@ interface; Arabic and Hebrew text *in layers* is supported through its Middle Ea
   (`match_system_uses_the_system_language_where_there_is_a_catalog`).
 - **Fonts:** no bundled CJK font; the UI installs system fallbacks probed by script (Kana, Han,
   Arabic, Hebrew, Devanagari, Bengali, Gurmukhi, Gujarati, Tamil, Telugu, Kannada, Malayalam,
-  Thai and Hangul: `crates/ui-egui/src/theme.rs`; the Hangul probe was added for #599, closed). The web build has no system fonts.
+  Thai, Georgian and Hangul: `crates/ui-egui/src/theme.rs`; Georgian prefers Sylfaen, SF Georgian, Arial
+  Unicode MS, Noto Sans Georgian or DejaVu Sans, `crates/text/src/fonts.rs`; the Hangul probe was added for #599, closed). The web build has no system fonts.
 - **Script support in the interface:** egui draws text without complex shaping or right-to-left
   layout, so an Arabic or Hindi interface would render unshaped and left to right. **In text
   layers** (`crates/text`) shaping (harfrust), bidi (UAX #9), vertical text and Tate-Chu-Yoko
