@@ -7038,7 +7038,7 @@ const GEORGIAN: &[(&str, &str, &str)] = &[
     ("", "Stroke Color", "კონტურის ფერი"),
     ("layer.addTextAnimator", "Stroke Width", "კონტურის სისქე"),
     ("", "Front", "წინა მხარე"),
-    ("", "Bevel", "ფასკა"),
+    ("", "Bevel", "წაკვეთა"),
     ("", "Side", "გვერდითი მხარე"),
     ("", "Back", "უკანა მხარე"),
     ("layer.addTextAnimator", "Color", "ფერი"),
