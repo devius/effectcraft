@@ -4899,7 +4899,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Video", "ვიდეო"),
     ("Enable Video Preview Output", "ვიდეოს წინასწარი ნახვის გამოტანის ჩართვა"),
     ("Video Device", "ვიდეომოწყობილობა"),
-    ("Floating Window", "ცალკე ფანჯარა"),
+    ("Floating Window", "მცურავი ფანჯარა"),
     ("Full Screen", "მთელ ეკრანზე"),
     ("Video Output During Playback", "ვიდეოს გამოტანა დაკვრისას"),
     ("Mirror on Computer Monitor", "დუბლირება კომპიუტერის მონიტორზე"),
@@ -4940,8 +4940,8 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Match System", "სისტემის მიხედვით"),
     ("Default", "ნაგულისხმევი"),
     ("Stored, but not used by EffectCraft yet", "შენახულია, მაგრამ EffectCraft ჯერ არ იყენებს"),
-    ("Total Offset", "სრული წანაცვლება"),
-    ("Per Layer", "თითო შრეზე"),
+    ("Total Offset", "ჯამური წანაცვლება"),
+    ("Per Layer", "შრიდან შრემდე"),
     ("Track", "ტრეკინგი"),
 ];
 
