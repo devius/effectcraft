@@ -4967,8 +4967,6 @@ const GEORGIAN_PANELS: &[(&str, &str)] = &[
     ("In", "შესვლა"),
     ("Out", "გამოსვლა"),
     ("Duration", "ხანგრძლივობა"),
-    ("History", "ისტორია"),
-    ("ScriptUI Panel", "ScriptUI პანელი"),
     ("Original color: click to go back to it", "საწყისი ფერი: დაწკაპეთ მასზე დასაბრუნებლად"),
     ("Resize floating panel", "მცურავი პანელის ზომის შეცვლა"),
     ("Render every n-th pixel", "ყოველი n-ური პიქსელის რენდერი"),
