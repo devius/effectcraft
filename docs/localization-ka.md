@@ -1,6 +1,6 @@
 # Georgian interface
 
-> **Last reviewed:** 2026-10-14 · **Last updated:** 2026-10-14 · **Change:** minor (synced with upstream: settings pages, effect names, Georgian-only panel rows) · **Target:** Adobe After Effects 2026
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (synced with upstream: Copy Source Path, Layer Styles context menu) · **Target:** Adobe After Effects 2026
 
 Choose **Settings ▸ General ▸ Language ▸ ქართული** (in Georgian: **პარამეტრები ▸ ზოგადი ▸ ენა**),
 or leave the language on **Match System** with a Georgian system display language (`ka`, `ka-GE`,
@@ -11,8 +11,8 @@ content, layer and composition names, command ids and CLI/MCP/control responses 
 
 The Georgian catalogs cover every fixed menu entry (`crates/ui-egui/src/i18n.rs`, `GEORGIAN`, 628
 entries with the same (command, English label) keys as Japanese), every panel, dialog, button
-and tooltip string of the Chinese panel catalogs (`crates/ui-egui/src/i18n/ui.rs`, `GEORGIAN`, 687
-rows in the same order), 178 more rows no other catalog has yet (`GEORGIAN_PANELS`: form dialogs,
+and tooltip string of the Chinese panel catalogs (`crates/ui-egui/src/i18n/ui.rs`, `GEORGIAN`, 689
+rows in the same order), 195 more rows no other catalog has yet (`GEORGIAN_PANELS`: form dialogs,
 drop messages, the Timeline's context menus) and every effect name and category
 (`crates/ui-egui/src/i18n/effects.rs`, 307 + 21; the `CC` series and brand names stay in English). The macOS application menu (Services, Hide, Hide Others, Show All), Undo /
 Redo with the history's action name (`დაბრუნება: Comp 1`) and the platform file manager in
@@ -93,5 +93,6 @@ macOS application menu.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | Synced with upstream: 628 menu entries, 689 + 195 panel rows (Copy Source Path, Layer Styles) |
 | 2026-10-14 | minor | Synced with upstream: 628 menu entries, 687 + 178 panel rows, effect names and categories |
 | 2026-10-13 | minor | Georgian localization notes and terminology; catalogs synced with upstream (624 menu entries, 506 panel rows) |
