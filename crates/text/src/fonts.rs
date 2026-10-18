@@ -638,8 +638,7 @@ const INDIC_FAMILIES: &[&str] = &[
     "Noto Sans Sinhala",
 ];
 const THAI_FAMILIES: &[&str] = &["Leelawadee UI", "Tahoma", "Thonburi", "Noto Sans Thai", "Noto Sans Thai UI", "Loma", "Garuda"];
-/// Windows (Sylfaen), macOS (the system's SF Georgian, then Arial Unicode MS), then the Linux names.
-const GEORGIAN_FAMILIES: &[&str] = &["Sylfaen", ".SF Georgian", "SF Georgian", "Arial Unicode MS", "Noto Sans Georgian", "DejaVu Sans"];
+const GEORGIAN_FAMILIES: &[&str] = &["Sylfaen", ".SF Georgian", "SF Georgian", "Noto Sans Georgian", "DejaVu Sans"];
 
 /// The CJK locale the host asked fallbacks to prefer, when it has one (see [`set_cjk_locale`]).
 static REQUESTED_CJK_LOCALE: RwLock<Option<String>> = RwLock::new(None);
