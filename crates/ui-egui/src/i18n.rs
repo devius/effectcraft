@@ -158,24 +158,12 @@ pub(crate) fn label<'a>(app: &EffectcraftApp, command: &str, source: &'a str) ->
             _ => {}
         }
     }
-    lookup(language, command, source).unwrap_or(source)
+    menu_catalog(language).map_or(source, |catalog| lookup(catalog, command, source))
 }
 
-/// A command's label drawn outside the menu bar (the Timeline's and Composition panel's layer and
-/// property context menus, the dock's tab titles, the workspace bar), in the language the panels
-/// draw in: the menu bar's row for (`command`, `source`), else the panel catalog's row for
-/// `source`, else `source`. Those menus write `…` where the menu bar's sources have `...`, so
-/// either spelling finds the menu bar's row.
-pub(crate) fn command_label<'a>(command: &str, source: &'a str) -> &'a str {
-    let language = ui::current();
-    let dotted = source.strip_suffix('…').map(|stem| format!("{stem}..."));
-    lookup(language, command, source).or_else(|| lookup(language, command, dotted.as_deref()?)).unwrap_or_else(|| tr(source))
-}
-
-/// The row for (command, English label) in `language`'s menu catalog; `None` when the pair is
-/// absent, so computed labels and user names stay verbatim.
-fn lookup(language: &str, command: &str, source: &str) -> Option<&'static str> {
-    let catalog = match language {
+/// The menu catalog for `language`; `None` for English.
+fn menu_catalog(language: &str) -> Option<&'static [(&'static str, &'static str, &'static str)]> {
+    Some(match language {
         "ja" => JAPANESE,
         "zh-hans" => SIMPLIFIED_CHINESE,
         "zh-hant" => TRADITIONAL_CHINESE,
@@ -188,8 +176,42 @@ fn lookup(language: &str, command: &str, source: &str) -> Option<&'static str> {
         "cs" => CZECH,
         "ka" => GEORGIAN,
         _ => return None,
-    };
-    catalog.iter().find(|(id, en, _)| *id == command && *en == source).map(|(_, _, translated)| *translated)
+    })
+}
+
+/// A command's label drawn outside the menu bar (the dock's tab titles, the workspace bar), in the
+/// language the panels draw in: the menu bar's row for (`command`, `source`), else the panel
+/// catalog's row for `source`, else `source`. `…` also finds a menu bar row written `...`.
+pub(crate) fn command_label<'a>(command: &str, source: &'a str) -> &'a str {
+    let dotted = source.strip_suffix('…').map(|stem| format!("{stem}..."));
+    let row = |key: &str| menu_catalog(ui::current())?.iter().find(|(id, en, _)| *id == command && *en == key).map(|(_, _, translated)| *translated);
+    row(source).or_else(|| row(dotted.as_deref()?)).unwrap_or_else(|| tr(source))
+}
+
+/// `source` looked up in `catalog` by (command, English label); the source itself when the pair is
+/// absent, so computed labels and user names stay verbatim.
+fn lookup<'a>(catalog: &[(&str, &str, &'a str)], command: &str, source: &'a str) -> &'a str {
+    catalog.iter().find(|(id, en, _)| *id == command && *en == source).map(|(_, _, translated)| *translated).unwrap_or(source)
+}
+
+/// The text a context menu draws for an item that runs `command` with `params` (#1308).
+///
+/// The Timeline's and the Composition panel's context menus repeat menu-bar commands, so they read
+/// the menu bar's row for the same command, and an `effect.apply` item draws the effect's name as
+/// the Effect menu does. The menu tree writes the ellipsis as `...` where the context menus write
+/// `…`. A label with no menu row (Delete, which the menu bar calls Clear) goes through the panel
+/// catalog. Only the drawn text is translated: the automation label stays the English `source`.
+pub(crate) fn context_item(command: &str, params: &serde_json::Value, source: &str) -> String {
+    if command == "effect.apply"
+        && let Some(id) = params.get("effect").and_then(|v| v.as_str())
+    {
+        return effects::name(id, source);
+    }
+    let ascii = source.strip_suffix('…').map(|s| format!("{s}..."));
+    let key = ascii.as_deref().unwrap_or(source);
+    menu_catalog(ui::current())
+        .and_then(|catalog| catalog.iter().find(|(id, en, _)| *id == command && *en == key))
+        .map_or_else(|| tr(source).to_string(), |(_, _, translated)| (*translated).to_string())
 }
 
 pub(crate) fn entry(app: &EffectcraftApp, e: &MenuEntry, shown: String) -> String {
