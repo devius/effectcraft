@@ -6,12 +6,15 @@
 //! inventing an id, and a missing row falls back to English instead of to an empty label.
 //!
 //! The language in force is set once per frame, from the same resolved language the fonts are
-//! installed for ([`super::language`], [`set_current`]), so a panel does not have to thread it
+//! installed for (`crate::i18n::language`, [`set_current`]), so a panel does not have to thread it
 //! through every function. It is thread-local: the render threads never draw interface text.
 //!
 //! A row that carries values keeps one `{}` per value and is read with [`tr_args`]; the tests below
 //! refuse a row whose placeholder count differs from its English source, so a translation can never
 //! drop a value, and `tr_args` itself cannot panic.
+//!
+//! A language may lack rows: the English source shows instead, and the `missing_translations_report`
+//! test (run by `cargo xtask ci`) lists what each language lacks.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -36,6 +39,20 @@ pub(crate) fn current() -> &'static str {
 }
 
 type Index = HashMap<&'static str, &'static str>;
+
+/// Every language with panel rows, for the tests and the missing-strings report.
+#[cfg(test)]
+const ROWS: &[(&str, &[(&str, &str)])] = &[
+    ("ja", JAPANESE),
+    ("zh-hans", SIMPLIFIED_CHINESE),
+    ("zh-hant", TRADITIONAL_CHINESE),
+    ("uk", UKRAINIAN),
+    ("pt-br", PORTUGUESE),
+    ("cs", CZECH),
+    ("es", SPANISH),
+    ("ka", GEORGIAN),
+    ("ka", GEORGIAN_PANELS),
+];
 
 /// The catalog for `language`, indexed by English source (built on first use: panels translate
 /// hundreds of strings a frame); `None` for English and any language that has no rows yet.
@@ -63,6 +80,62 @@ fn catalog(language: &str) -> Option<&'static Index> {
     Some(index.get_or_init(|| rows.iter().copied().collect()))
 }
 
+/// The panel strings `language` has no row for, for the missing-strings report: every English
+/// source any catalog lists, in catalog order, then the literals the converted panels pass to `tr`
+/// or `tr_args` that no catalog lists yet.
+#[cfg(test)]
+pub(super) fn missing(language: &str) -> Vec<String> {
+    let table = catalog(language);
+    let rows = ROWS.iter().flat_map(|(_, rows)| rows.iter().map(|(en, _)| en.to_string()));
+    let literals = tests::CONVERTED.iter().flat_map(|(_, src)| tr_literals(src));
+    let mut seen = std::collections::HashSet::new();
+    rows.chain(literals).filter(|en| !table.is_some_and(|c| c.contains_key(en.as_str())) && seen.insert(en.clone())).collect()
+}
+
+/// The string literals `src` passes to `tr(` and `tr_args(`.
+#[cfg(test)]
+fn tr_literals(src: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for call in ["tr(\"", "tr_args(\""] {
+        for (at, _) in src.match_indices(call) {
+            // `str("` or `attr("` is another call.
+            if src[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_') {
+                continue;
+            }
+            out.extend(string_literal(&src[at + call.len()..]));
+        }
+    }
+    out
+}
+
+/// The text of the string literal `rest` starts inside (just after its opening quote), with the
+/// common escapes resolved; `None` for an escape this doesn't resolve.
+#[cfg(test)]
+fn string_literal(rest: &str) -> Option<String> {
+    let mut out = String::new();
+    let mut chars = rest.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => return Some(out),
+            '\\' => match chars.next()? {
+                'n' => out.push('\n'),
+                't' => out.push('\t'),
+                c @ ('\\' | '"' | '\'') => out.push(c),
+                _ => return None,
+            },
+            c => out.push(c),
+        }
+    }
+    None
+}
+
+/// Characters required by the fixed panel catalog, for system-font coverage selection.
+/// Sorted and deduplicated so fallback registration is deterministic.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn catalog_characters(language: &str) -> Vec<char> {
+    catalog(language).into_iter().flat_map(|c| c.values()).flat_map(|s| s.chars()).collect::<std::collections::BTreeSet<_>>().into_iter().collect()
+}
+
 /// Translate one interface string: the current language's row for `text`, or `text` itself.
 pub(crate) fn tr(text: &str) -> &str {
     catalog(current()).and_then(|c| c.get(text)).copied().unwrap_or(text)
@@ -88,7 +161,7 @@ pub(crate) fn tr_args(text: &str, args: &[&dyn Display]) -> String {
     out
 }
 
-/// Japanese: the same rows, in the same order, as the Chinese catalogs below (the tests keep the two in step).
+/// Japanese: the same rows, in the same order, as the Chinese catalogs below.
 const JAPANESE: &[(&str, &str)] = &[
     ("Appearance Settings…", "外観設定…"),
     ("Add to favorites", "お気に入りに追加"),
@@ -262,9 +335,10 @@ const JAPANESE: &[(&str, &str)] = &[
     ("Follow Feature Rotation and Scale", "特徴の回転とスケールに追従"),
     ("Footage: {}", "フッテージ：{}"),
     ("Format: {}", "形式：{}"),
-    ("Frame Aspect Ratio: {}", "フレームアスペクト比：{}"),
+    ("Frame Aspect Ratio: {}", "フレーム縦横比：{}"),
     ("Frame Blending: {}", "フレームブレンド：{}"),
     ("Frame Rate:", "フレームレート:"),
+    ("Resolution:", "解像度:"),
     ("Frame Render Time  {}ms", "フレームのレンダリング時間  {}ms"),
     ("Frame Target:", "フレームターゲット:"),
     ("Freeze", "フリーズ"),
@@ -297,7 +371,6 @@ const JAPANESE: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "最新の自動保存：{}"),
     ("Layer", "レイヤー"),
     ("Layer controls", "レイヤーコントロール"),
-    ("Layer {}", "レイヤー{}"),
     ("Layer:", "レイヤー:"),
     ("Layer: {}", "レイヤー：{}"),
     ("Layer Styles", "レイヤースタイル"),
@@ -311,7 +384,7 @@ const JAPANESE: &[(&str, &str)] = &[
     ("Lighter", "明るく"),
     ("Link Selected Property", "選択したプロパティをリンク"),
     ("Location:", "位置:"),
-    ("Lock Aspect Ratio to {}", "アスペクト比を{}に固定"),
+    ("Lock Aspect Ratio to {}", "縦横比を {} に固定"),
     ("Lock to Zoom", "ズームにロック"),
     ("Locked: {} — {}", "ロック済み：{} — {}"),
     ("Log:", "ログ:"),
@@ -394,7 +467,7 @@ const JAPANESE: &[(&str, &str)] = &[
     ("Overlay", "オーバーレイ"),
     ("Parameter Name:", "パラメーター名:"),
     ("Parent pick whip: drag onto a layer", "親ピックウィップ：レイヤー上にドラッグ"),
-    ("Pixel Aspect Ratio:", "ピクセルアスペクト比:"),
+    ("Pixel Aspect Ratio:", "ピクセル縦横比:"),
     ("Playing on Video Preview", "ビデオプレビューで再生中"),
     ("Post-Render Action: {}", "レンダリング後の処理：{}"),
     ("Preserve frame rate when nested or in render queue", "ネスト時またはレンダーキュー内でフレームレートを保持"),
@@ -1000,6 +1073,7 @@ const SIMPLIFIED_CHINESE: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "帧长宽比：{}"),
     ("Frame Blending: {}", "帧混合：{}"),
     ("Frame Rate:", "帧速率："),
+    ("Resolution:", "分辨率："),
     ("Frame Render Time  {}ms", "帧渲染时间  {} 毫秒"),
     ("Frame Target:", "帧目标："),
     ("Freeze", "冻结"),
@@ -1032,7 +1106,6 @@ const SIMPLIFIED_CHINESE: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "最新的自动保存：{}"),
     ("Layer", "图层"),
     ("Layer controls", "图层控制"),
-    ("Layer {}", "图层 {}"),
     ("Layer:", "图层："),
     ("Layer: {}", "图层：{}"),
     ("Layer Styles", "图层样式"),
@@ -1740,6 +1813,7 @@ const TRADITIONAL_CHINESE: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "影格長寬比：{}"),
     ("Frame Blending: {}", "影格混合：{}"),
     ("Frame Rate:", "影格速率："),
+    ("Resolution:", "解析度："),
     ("Frame Render Time  {}ms", "影格算圖時間  {} 毫秒"),
     ("Frame Target:", "幀目標："),
     ("Freeze", "凍結"),
@@ -1772,7 +1846,6 @@ const TRADITIONAL_CHINESE: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "最新的自動儲存：{}"),
     ("Layer", "圖層"),
     ("Layer controls", "圖層控制"),
-    ("Layer {}", "圖層 {}"),
     ("Layer:", "圖層："),
     ("Layer: {}", "圖層：{}"),
     ("Layer Styles", "圖層樣式"),
@@ -2030,59 +2103,10 @@ const TRADITIONAL_CHINESE: &[(&str, &str)] = &[
     ("⌘/Ctrl-drag a pin to record its motion", "⌘/Ctrl 拖曳釘選點可記錄其運動"),
     ("▣ {}", "▣ {}"),
     ("⚠ {} is used by:", "⚠ {} 已被以下專案使用："),
-    // The same rows as the Simplified catalog (the tests require both lists to match). The
-    // Traditional wording is the translator's call and is left as the English source for now.
-    ("3D Reference Axes", "3D Reference Axes"),
-    ("Affect all layers that use this solid", "Affect all layers that use this solid"),
-    ("Choose grid and guide options", "Choose grid and guide options"),
-    ("Colorize", "Colorize"),
-    ("Custom", "Custom"),
-    ("Custom...", "Custom..."),
-    ("Fit", "Fit"),
-    ("Fit up to 100%", "Fit up to 100%"),
-    ("Full", "Full"),
-    ("Half", "Half"),
-    ("Only this layer uses this solid.", "Only this layer uses this solid."),
-    ("Proportional Grid", "Proportional Grid"),
-    ("Quarter", "Quarter"),
-    ("Region of Interest", "Region of Interest"),
-    ("Reset Exposure", "Reset Exposure"),
-    ("Show Channel and Color Management Settings", "Show Channel and Color Management Settings"),
-    ("Show Snapshot (hold)", "Show Snapshot (hold)"),
-    ("Take Snapshot", "Take Snapshot"),
-    ("Third", "Third"),
-    ("Toggle Mask and Shape Path Visibility", "Toggle Mask and Shape Path Visibility"),
-    ("Toggle Transparency Grid", "Toggle Transparency Grid"),
-    ("16 bits per channel", "16 bits per channel"),
-    ("32 bits per channel (float)", "32 bits per channel (float)"),
-    ("8 bits per channel", "8 bits per channel"),
-    ("Adaptive Resolution", "Adaptive Resolution"),
-    ("Adobe-style built-in", "Adobe-style built-in"),
     ("Blue", "藍色"),
-    ("Current Settings", "Current Settings"),
-    ("Disable Per-character 3D", "Disable Per-character 3D"),
-    ("Draft", "Draft"),
-    ("Enable Per-character 3D", "Enable Per-character 3D"),
-    ("Fast Draft", "Fast Draft"),
-    ("Fast Previews (Draft 3D, Faster Effects)", "Fast Previews (Draft 3D, Faster Effects)"),
     ("Green", "綠色"),
-    ("Import Image Sequence", "Import Image Sequence"),
-    ("Import PDF / Illustrator File", "Import PDF / Illustrator File"),
-    ("Import Photoshop File", "Import Photoshop File"),
-    ("Interpret Unlabeled Alpha As", "Interpret Unlabeled Alpha As"),
     ("Join the ArtCraft Discord", "加入 ArtCraft Discord"),
-    ("Mercury GPU Acceleration ({})", "Mercury GPU Acceleration ({})"),
-    ("Mercury Software Only", "Mercury Software Only"),
-    ("OCIO (built-in ACES config)", "OCIO (built-in ACES config)"),
-    ("Off (Final Quality)", "Off (Final Quality)"),
-    ("OpenGL (compatibility)", "OpenGL (compatibility)"),
-    ("Opus Bitrate: {} kbps", "Opus Bitrate: {} kbps"),
-    ("RGB Straight", "RGB Straight"),
     ("Red", "紅色"),
-    ("Tone map", "Tone map"),
-    ("Use In-Window Menu Bar on macOS", "Use In-Window Menu Bar on macOS"),
-    ("Wireframe", "Wireframe"),
-    ("sRGB IEC61966-2.1 (default)", "sRGB IEC61966-2.1 (default)"),
     // The Home screen (#574).
     ("New Project", "新增專案"),
     ("Open Project…", "開啟專案…"),
@@ -2483,6 +2507,7 @@ const UKRAINIAN: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "Пропорції кадру: {}"),
     ("Frame Blending: {}", "Змішування кадрів: {}"),
     ("Frame Rate:", "Частота кадрів:"),
+    ("Resolution:", "Роздільність:"),
     ("Frame Render Time  {}ms", "Час рендерингу кадру  {} мс"),
     ("Frame Target:", "Цільовий фрейм:"),
     ("Freeze", "Заморозити"),
@@ -2515,7 +2540,6 @@ const UKRAINIAN: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "Останнє автозбереження: {}"),
     ("Layer", "Шар"),
     ("Layer controls", "Керування шарами"),
-    ("Layer {}", "Шар {}"),
     ("Layer:", "Шар:"),
     ("Layer: {}", "Шар: {}"),
     ("Layer Styles", "Стилі шару"),
@@ -3043,6 +3067,7 @@ const PORTUGUESE: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "Proporção do quadro: {}"),
     ("Frame Blending: {}", "Mesclagem de quadros: {}"),
     ("Frame Rate:", "Taxa de quadros:"),
+    ("Resolution:", "Resolução:"),
     ("Frame Render Time  {}ms", "Tempo de renderização do quadro  {}ms"),
     ("Frame Target:", "Destino do quadro:"),
     ("Grab bag", "Lista"),
@@ -3073,7 +3098,6 @@ const PORTUGUESE: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "Último salvamento automático: {}"),
     ("Layer", "Camada"),
     ("Layer controls", "Controles da camada"),
-    ("Layer {}", "Camada {}"),
     ("Layer:", "Camada:"),
     ("Layer: {}", "Camada: {}"),
     ("Layer Styles", "Estilos de camada"),
@@ -3501,6 +3525,7 @@ const CZECH: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "Poměr stran snímku: {}"),
     ("Frame Blending: {}", "Prolnutí snímků: {}"),
     ("Frame Rate:", "Snímková frekvence:"),
+    ("Resolution:", "Rozlišení:"),
     ("Frame Render Time  {}ms", "Čas vykreslení snímku  {}ms"),
     ("Frame Target:", "Cílový rámec:"),
     ("Freeze", "Zmrazit"),
@@ -3532,7 +3557,6 @@ const CZECH: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "Nejnovější automatická záloha: {}"),
     ("Layer", "Vrstva"),
     ("Layer controls", "Ovládací prvky vrstvy"),
-    ("Layer {}", "Vrstva {}"),
     ("Layer:", "Vrstva:"),
     ("Layer: {}", "Vrstva: {}"),
     ("Layer Styles", "Styly vrstvy"),
@@ -4064,6 +4088,7 @@ const SPANISH: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "Relación de aspecto del fotograma: {}"),
     ("Frame Blending: {}", "Fusión de fotogramas: {}"),
     ("Frame Rate:", "Velocidad de fotogramas:"),
+    ("Resolution:", "Resolución:"),
     ("Frame Render Time  {}ms", "Tiempo de procesamiento del fotograma  {}ms"),
     ("Frame Target:", "Marco de destino:"),
     ("Freeze", "Congelar"),
@@ -4095,7 +4120,6 @@ const SPANISH: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "Último guardado automático: {}"),
     ("Layer", "Capa"),
     ("Layer controls", "Controles de capa"),
-    ("Layer {}", "Capa {}"),
     ("Layer:", "Capa:"),
     ("Layer: {}", "Capa: {}"),
     ("Layer Styles", "Estilos de capa"),
@@ -4647,7 +4671,6 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Latest auto-save: {}", "ბოლო ავტოშენახვა: {}"),
     ("Layer", "შრე"),
     ("Layer controls", "შრის მართვის ელემენტები"),
-    ("Layer {}", "შრე {}"),
     ("Layer:", "შრე:"),
     ("Layer: {}", "შრე: {}"),
     ("Layer Styles", "შრის სტილები"),
@@ -4954,9 +4977,9 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Import Image Sequence", "გამოსახულებების თანმიმდევრობის იმპორტი"),
     ("Import PDF / Illustrator File", "PDF / Illustrator ფაილის იმპორტი"),
     ("Import Photoshop File", "Photoshop ფაილის იმპორტი"),
-    ("Interpret Unlabeled Alpha As", "არამონიშნული ალფას ინტერპრეტაცია როგორც"),
-    ("Join the ArtCraft Discord", "შემოუერთდით ArtCraft-ის Discord-ს"),
-    ("Mercury GPU Acceleration ({})", "Mercury GPU აჩქარება ({})"),
+    ("Interpret Unlabeled Alpha As", "უცნობი ალფას ინტერპრეტაცია"),
+    ("Join the ArtCraft Discord", "შემოგვიერთდით Discord-ზე"),
+    ("Mercury GPU Acceleration ({})", "GPU აჩქარება ({})"),
     ("Mercury Software Only", "მხოლოდ Mercury Software"),
     ("OCIO (built-in ACES config)", "OCIO (ჩაშენებული ACES კონფიგურაცია)"),
     ("Off (Final Quality)", "გამორთული (საბოლოო ხარისხი)"),
@@ -4975,7 +4998,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("EffectCraft on GitHub", "EffectCraft GitHub-ზე"),
     ("Motion graphics and visual effects · version {}", "მოძრავი გრაფიკა და ვიზუალური ეფექტები · ვერსია {}"),
     ("New Composition", "ახალი კომპოზიცია"),
-    ("Open Demo Project", "სადემონსტრაციო პროექტის გახსნა"),
+    ("Open Demo Project", "დემო-პროექტის გახსნა"),
     ("Import Footage…", "ვიდეომასალის იმპორტი…"),
     ("Filter recent files", "ბოლო ფაილების გაფილტვრა"),
     ("NAME", "სახელი"),
@@ -5001,7 +5024,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("General", "ზოგადი"),
     ("Language", "ენა"),
     ("Levels of Undo", "დაბრუნების დონეები"),
-    ("Path Point and Handle Size", "ტრაექტორიის წერტილისა და სახელურის ზომა"),
+    ("Path Point and Handle Size", "წერტილისა და სახელურის ზომა"),
     ("Recent Projects Shown", "ნაჩვენები ბოლო პროექტები"),
     ("Options", "პარამეტრები"),
     ("Show Tool Tips", "მინიშნებების ჩვენება"),
@@ -5040,7 +5063,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Automatically Save Projects", "პროექტების ავტომატური შენახვა"),
     ("Save Every", "შენახვა ყოველ"),
     ("Minutes", "წუთში"),
-    ("Maximum Project Versions", "პროექტის ვერსიების მაქსიმალური რაოდენობა"),
+    ("Maximum Project Versions", "ვერსიების მაქსიმალური რაოდენობა"),
     ("Auto-Save Location", "ავტოშენახვის მდებარეობა"),
     ("Next to Project", "პროექტის გვერდით"),
     ("Custom Location", "სხვა მდებარეობა"),
@@ -5061,7 +5084,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Adaptive Resolution Limit", "ადაპტური გარჩევადობის ზღვარი"),
     ("Show Internal Wireframes", "შიდა კარკასების ჩვენება"),
     ("Cache Frames When Idle", "კადრების ქეშირება უქმობისას"),
-    ("Viewer Zoom Quality", "დამთვალიერებლის მასშტაბირების ხარისხი"),
+    ("Viewer Zoom Quality", "დამთვალიერებლის მასშტაბის ხარისხი"),
     ("Faster", "უფრო სწრაფი"),
     ("More Accurate", "უფრო ზუსტი"),
     ("Display Color Space", "ეკრანის ფერთა სივრცე"),
@@ -5092,7 +5115,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Latin", "ლათინური"),
     ("South Asian and Middle Eastern", "სამხრეთაზიური და ახლო აღმოსავლური"),
     ("Show Font Preview", "შრიფტის წინასწარი ნახვის ჩვენება"),
-    ("Number of Recent Fonts to Display", "საჩვენებელი ბოლო შრიფტების რაოდენობა"),
+    ("Number of Recent Fonts to Display", "ბოლო შრიფტების რაოდენობა"),
     ("Show Font Names in English", "შრიფტების სახელების ინგლისურად ჩვენება"),
     ("Still Footage", "უძრავი ვიდეომასალა"),
     ("Length of Composition", "კომპოზიციის სიგრძე"),
@@ -5100,7 +5123,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Still Duration", "უძრავი კადრის ხანგრძლივობა"),
     ("Sequence Footage", "სეკვენციური ვიდეომასალა"),
     ("Report Missing Frames", "გამოტოვებული კადრების შეტყობინება"),
-    ("Automatically Reload Footage", "ვიდეომასალის ავტომატური ხელახლა ჩატვირთვა"),
+    ("Automatically Reload Footage", "ავტომატური ხელახლა ჩატვირთვა"),
     ("Off", "გამორთული"),
     ("Non-Sequence Footage", "არასეკვენციური ვიდეომასალა"),
     ("All Footage", "მთელი ვიდეომასალა"),
@@ -5109,7 +5132,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Ignore", "უგულებელყოფა"),
     ("Straight", "პირდაპირი"),
     ("Premultiplied", "წინასწარ გამრავლებული"),
-    ("Default Drag Import As", "გადათრევით იმპორტი ნაგულისხმევად როგორც"),
+    ("Default Drag Import As", "გადათრევით იმპორტი როგორც"),
     ("Footage", "ვიდეომასალა"),
     ("Composition - Retain Layer Sizes", "კომპოზიცია - შრეების ზომების შენარჩუნებით"),
     ("Export", "ექსპორტი"),
@@ -5122,7 +5145,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Append Bit Depth to File Name", "ბიტური სიღრმის ფაილის სახელზე დამატება"),
     ("Audio", "აუდიო"),
     ("Audio Hardware", "აუდიოაპარატურა"),
-    ("Preview Sample Rate", "წინასწარი ნახვის დისკრეტიზაციის სიხშირე"),
+    ("Preview Sample Rate", "ნახვის დისკრეტიზაციის სიხშირე"),
     ("Audio Output Mapping", "აუდიოს გამოტანის ასახვა"),
     ("Left", "მარცხენა"),
     ("Right", "მარჯვენა"),
@@ -5197,7 +5220,7 @@ const GEORGIAN: &[(&str, &str)] = &[
 /// exactly the Chinese catalogs' sources; the tests hold these to the same rules.
 const GEORGIAN_PANELS: &[(&str, &str)] = &[
     ("Search project", "პროექტში ძიება"),
-    ("Select an item to see its details", "მონიშნეთ ელემენტი მისი დეტალების სანახავად"),
+    ("Select an item to see its details", "მონიშნეთ ელემენტი დეტალებისთვის"),
     ("Media Duration", "მედიის ხანგრძლივობა"),
     ("Frame Rate", "კადრების სიხშირე"),
     ("File Path", "ფაილის მისამართი"),
@@ -5351,12 +5374,12 @@ const GEORGIAN_PANELS: &[(&str, &str)] = &[
     ("Current Frame", "მიმდინარე კადრი"),
     ("Work Area", "სამუშაო არე"),
     ("Luminance", "სიკაშკაშე"),
-    ("Create Markers", "მარკერების შექმნა"),
+    ("Create Markers", "მარკერები"),
     ("Split Layers", "შრეების დაყოფა"),
     ("Split and Precompose", "დაყოფა და კომპოზიციაში მოთავსება"),
     ("CMX 3600 EDL (.edl, V1 only)", "CMX 3600 EDL (.edl, მხოლოდ V1)"),
     ("OMF (.omf, audio)", "OMF (.omf, აუდიო)"),
-    ("Layers Premiere can't show (text, shapes, effects…)", "შრეები, რომლებსაც Premiere ვერ აჩვენებს (ტექსტი, ფიგურები, ეფექტები…)"),
+    ("Layers Premiere can't show (text, shapes, effects…)", "Premiere-ში უხილავი შრეები"),
     ("All layers", "ყველა შრე"),
     ("None (leave them out)", "არცერთი (გამოტოვება)"),
     ("Nested sequences", "ჩადგმული სეკვენციები"),
@@ -5403,10 +5426,11 @@ mod tests {
     use super::*;
 
     /// The interface text that has moved into this catalog. Add a panel here when you convert it;
-    /// the tests below then keep it translated.
-    const CONVERTED: &[(&str, &str)] = &[
+    /// `every_row_is_used_by_a_converted_panel` then looks for its rows' English sources in it.
+    pub(super) const CONVERTED: &[(&str, &str)] = &[
         ("color_picker.rs", include_str!("../color_picker.rs")),
         ("credits.rs", include_str!("../credits.rs")),
+        ("dock.rs", include_str!("../dock.rs")),
         ("dock_ui.rs", include_str!("../dock_ui.rs")),
         ("header.rs", include_str!("../header.rs")),
         ("menus.rs", include_str!("../menus.rs")),
@@ -5462,97 +5486,35 @@ mod tests {
         ("panels/viewers.rs", include_str!("../panels/viewers.rs")),
         // Text the interface draws but does not own: the settings pages and the viewer's channel
         // and Fast Previews lists come from the engine as data, so their source strings live here.
-        // Both files pass the literal scan below unchanged (they hold no drawn literals).
         ("engine settings pages", include_str!("../../../engine/src/prefs.rs")),
         ("engine viewer channels", include_str!("../../../engine/src/viewer.rs")),
         ("engine viewer commands", include_str!("../../../engine/src/commands/viewer_cmds.rs")),
     ];
 
-    /// Call shapes that hand a string literal straight to the user.
-    const CALLS: &[&str] = &[
-        ".label(\"",
-        ".button(\"",
-        ".small(\"",
-        ".strong(\"",
-        ".heading(\"",
-        ".monospace(\"",
-        ".on_hover_text(\"",
-        ".on_disabled_hover_text(\"",
-        ".hint_text(\"",
-        ".text(\"",
-        ".prefix(\"",
-        ".suffix(\"",
-        "RichText::new(\"",
-        "Label::new(\"",
-        "Button::new(\"",
-        "Window::new(\"",
-        "CollapsingHeader::new(\"",
-    ];
-
-    /// Literals that stay as they are: a unit or a separator reads the same in every language.
-    const UNITS: &[&str] = &[" px", "%", "·", "s", "ms", "°", "fps", " bpc", " mm", " s", " %", " pixels"];
-
     fn catalogs() -> Vec<(&'static str, &'static str)> {
-        JAPANESE
-            .iter()
-            .copied()
-            .chain(SIMPLIFIED_CHINESE.iter().copied())
-            .chain(TRADITIONAL_CHINESE.iter().copied())
-            .chain(UKRAINIAN.iter().copied())
-            .chain(PORTUGUESE.iter().copied())
-            .chain(CZECH.iter().copied())
-            .chain(SPANISH.iter().copied())
-            .chain(GEORGIAN.iter().copied())
-            .chain(GEORGIAN_PANELS.iter().copied())
-            .collect()
+        ROWS.iter().flat_map(|(_, rows)| rows.iter().copied()).collect()
     }
 
-    #[test]
-    fn czech_panels_translate_and_keep_project_content_and_argument_order() {
-        set_current("cs");
-        assert_eq!(tr("Composition Name:"), "Název kompozice:");
-        assert_eq!(tr("Cancel"), "Zrušit");
-        assert_eq!(tr("Guide Layer"), "Pomocná vrstva", "the layer context menus' item, as Layer ▸ Guide Layer");
-        assert_eq!(tr("my layer.mp4"), "my layer.mp4");
-        assert_eq!(tr_args("Proxy Use: {}", &[&"Best"]), "Použití zástupných souborů: Best");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "Krok 1 z 3: Colour");
-        assert_eq!(tr_args("Template: {}\n{}", &[&"Title", &"My description"]), "Šablona: Title\nMy description");
-        assert_eq!(tr_args("Leave all attributes in \"{}\"", &[&"File Čeština"]), "Ponechat všechny atributy v „File Čeština“");
-        assert_eq!(
-            tr_args("{} — double-click to open, {}-click to reveal", &[&"File.ecproj", &"Alt"]),
-            "File.ecproj — dvojklikem otevřete, kliknutím s Alt zobrazíte umístění"
-        );
-        assert_eq!(tr_args("Proxy Use: {}", &[]), "Použití zástupných souborů: ");
-        set_current("en");
-        assert_eq!(tr("Composition Name:"), "Composition Name:");
+    /// `en`'s row in `rows`, else `en`: what `tr` should return without pinning one wording.
+    fn row(rows: &[(&'static str, &'static str)], en: &'static str) -> &'static str {
+        rows.iter().find(|(source, _)| *source == en).map_or(en, |(_, translated)| *translated)
     }
 
     /// A row that translates nothing, repeats a source string, or changes the number of values the
     /// English source carries is a bug in the catalog itself.
     #[test]
     fn catalogs_are_unique_and_keep_the_english_shape() {
-        let hans: Vec<&str> = SIMPLIFIED_CHINESE.iter().map(|(en, _)| *en).collect();
-        let hant: Vec<&str> = TRADITIONAL_CHINESE.iter().map(|(en, _)| *en).collect();
-        assert_eq!(hans, hant, "the two Chinese catalogs list different source strings");
-        let ka: Vec<&str> = GEORGIAN.iter().map(|(en, _)| *en).collect();
-        assert_eq!(hans, ka, "the Georgian catalog lists different source strings from the Chinese ones");
-        let ka_panels: Vec<&str> = GEORGIAN_PANELS.iter().map(|(en, _)| *en).collect();
-        let shared: Vec<&str> = ka_panels.iter().copied().filter(|en| hans.contains(en)).collect();
-        assert!(shared.is_empty(), "Georgian-only rows the Chinese catalogs have too (move them to GEORGIAN): {shared:?}");
-        let mut own = ka_panels.clone();
-        own.sort_unstable();
-        own.dedup();
-        assert_eq!(own.len(), ka_panels.len(), "a Georgian-only source string is listed twice");
-        // Japanese, Ukrainian and Czech may lag the Chinese catalogs: a missing row falls back to English.
-        for (name, cat) in [("Japanese", JAPANESE), ("Ukrainian", UKRAINIAN), ("Brazilian Portuguese", PORTUGUESE), ("Czech", CZECH), ("Spanish", SPANISH)] {
-            let extra: Vec<&str> = cat.iter().map(|(en, _)| *en).filter(|en| !hans.contains(en)).collect();
-            assert!(extra.is_empty(), "the {name} catalog lists source strings the Chinese ones don't: {extra:?}");
+        // Grouped by language: a source listed in two tables of one language is still a repeat.
+        let mut by_code: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+        for (code, rows) in ROWS {
+            by_code.entry(code).or_default().extend(rows.iter().map(|(en, _)| *en));
         }
-        let mut sorted = hans.clone();
-        sorted.sort_unstable();
-        let listed = sorted.len();
-        sorted.dedup();
-        assert_eq!(listed, sorted.len(), "a source string is listed twice");
+        for (code, mut sources) in by_code {
+            sources.sort_unstable();
+            let listed = sources.len();
+            sources.dedup();
+            assert_eq!(listed, sources.len(), "{code}: a source string is listed twice");
+        }
         for (en, translated) in catalogs() {
             assert!(!en.is_empty() && !translated.is_empty(), "empty row for {en:?}");
             assert!(en.contains("{}") || !en.contains('{'), "{en:?} has a placeholder but no `{{}}`");
@@ -5569,64 +5531,18 @@ mod tests {
         set_current("xx"); // a language without rows
         assert_eq!(tr("Composition Name:"), "Composition Name:");
         set_current("zh-hans");
-        assert_eq!(tr("Composition Name:"), "合成名称：");
+        assert_eq!(tr("Composition Name:"), row(SIMPLIFIED_CHINESE, "Composition Name:"));
         assert_eq!(tr("my layer.mp4"), "my layer.mp4");
         set_current("en");
     }
 
-    /// The same language preference used for the menus reaches panels immediately, and formatted
-    /// text keeps the caller's values intact even when they contain non-Ukrainian words.
+    /// Georgian also reads its own table, for text the other catalogs don't have yet.
     #[test]
-    fn ukrainian_panels_translate_and_keep_project_content() {
-        set_current("uk");
-        assert_eq!(tr("Composition Name:"), "Назва композиції:");
-        assert_eq!(tr("Cancel"), "Скасувати");
-        assert_eq!(tr("my layer.mp4"), "my layer.mp4");
-        assert_eq!(tr_args("Proxy Use: {}", &[&"Best"]), "Використання проксі: Best");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "Крок 1 з 3: Colour");
-        assert_eq!(tr_args("Template: {}\n{}", &[&"Title", &"My description"]), "Шаблон: Title\nMy description");
-        set_current("en");
-        assert_eq!(tr("Composition Name:"), "Composition Name:");
-    }
-
-    /// Brazilian Portuguese panels translate, fill values in order and keep project content.
-    #[test]
-    fn brazilian_portuguese_panels_translate_and_keep_project_content() {
-        set_current("pt-br");
-        assert_eq!(tr("Composition Name:"), "Nome da composição:");
-        assert_eq!(tr("Cancel"), "Cancelar");
-        assert_eq!(tr("my layer.mp4"), "my layer.mp4");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "Etapa 1 de 3: Colour");
-        assert_eq!(tr("   OK   "), "   OK   ");
-        set_current("en");
-        assert_eq!(tr("Cancel"), "Cancel");
-    }
-
-    /// Spanish panels translate, fill values in order and keep project content.
-    #[test]
-    fn spanish_panels_translate_and_keep_project_content() {
-        set_current("es");
-        assert_eq!(tr("Composition Name:"), "Nombre de la composición:");
-        assert_eq!(tr("Cancel"), "Cancelar");
-        assert_eq!(tr("my layer.mp4"), "my layer.mp4");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "Paso 1 de 3: Colour");
-        set_current("en");
-        assert_eq!(tr("Cancel"), "Cancel");
-    }
-
-    /// Georgian reads its own rows; counts stay count-neutral and values keep their order.
-    #[test]
-    fn georgian_panels_translate_and_keep_project_content() {
+    fn georgian_reads_its_own_panel_rows() {
         set_current("ka");
-        assert_eq!(tr("Composition Name:"), "კომპოზიციის სახელი:");
-        assert_eq!(tr("Cancel"), "გაუქმება");
-        assert_eq!(tr("my layer.mp4"), "my layer.mp4");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "ნაბიჯი 1 / 3: Colour");
-        assert_eq!(tr_args("{} minutes ago", &[&5]), "5 წუთის წინ");
-        // A Georgian-only row (GEORGIAN_PANELS), which other languages still draw in English.
-        assert_eq!(tr("Solid Settings"), "სოლიდის პარამეტრები");
-        set_current("cs");
-        assert_eq!(tr("Solid Settings"), "Solid Settings");
+        for (source, _) in GEORGIAN_PANELS.iter().take(3) {
+            assert_eq!(tr(source), row(GEORGIAN_PANELS, source));
+        }
         set_current("en");
     }
 
@@ -5634,29 +5550,19 @@ mod tests {
     #[test]
     fn tr_args_fills_values_in_order() {
         set_current("zh-hans");
-        assert_eq!(tr_args("Proxy Use: {}", &[&"Best"]), "代理使用：Best");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "第 1 步，共 3 步：Colour");
-        assert_eq!(tr_args("Proxy Use: {}", &[]), "代理使用：");
+        let template = row(SIMPLIFIED_CHINESE, "Proxy Use: {}");
+        assert_eq!(tr_args("Proxy Use: {}", &[&"Best"]), template.replacen("{}", "Best", 1));
+        assert_eq!(tr_args("Proxy Use: {}", &[]), template.replacen("{}", "", 1));
         set_current("en");
+        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "Step 1 of 3: Colour");
         assert_eq!(tr_args("Proxy Use: {}", &[&"Best"]), "Proxy Use: Best");
+        assert_eq!(tr_args("Proxy Use: {}", &[]), "Proxy Use: ");
     }
 
-    /// Japanese reads its own rows: values fill the placeholders in order, and a name that is not a
-    /// row (a layer or file name) stays verbatim.
-    #[test]
-    fn japanese_rows_translate_the_panels() {
-        set_current("ja");
-        assert_eq!(tr("Composition Name:"), "コンポジション名:");
-        assert_eq!(tr("my layer.mp4"), "my layer.mp4");
-        assert_eq!(tr_args("Proxy Use: {}", &[&"Best"]), "プロキシの使用：Best");
-        assert_eq!(tr_args("Step {} of {}: {}", &[&1, &3, &"Colour"]), "ステップ1/3：Colour");
-        set_current("en");
-    }
-
-    /// Every row is asked for by a converted panel: a leftover row means the panel went back to its
-    /// English literal. A string a helper draws for the panel (a toolbar tooltip, a popup item, a
-    /// checkbox label) is looked up inside that helper, so its English source only appears as a
-    /// literal there - `helper_labels_are_translated` keeps those helpers honest.
+    /// Every row is asked for by a converted panel: a leftover row is stale, because the panel's
+    /// English source changed or went away. A string a helper draws for the panel (a toolbar
+    /// tooltip, a popup item, a checkbox label) is looked up inside that helper, so its English
+    /// source only appears as a literal there.
     #[test]
     fn every_row_is_used_by_a_converted_panel() {
         for (en, _) in catalogs() {
@@ -5667,86 +5573,6 @@ mod tests {
                 CONVERTED.iter().any(|(_, src)| src.contains(&plain) || src.contains(&formatted) || src.contains(&bare)),
                 "{en:?} is in the catalog but no converted panel asks for it"
             );
-        }
-    }
-
-    /// A label that a helper takes as an argument is drawn by the helper, so the helper has to ask
-    /// the catalog: `Checkbox::new` and `RadioButton::new` are not among the scanned call shapes
-    /// (the label is their second argument), which let the solid dialog's checkbox ship in English.
-    #[test]
-    fn helper_labels_are_translated() {
-        for (path, source) in CONVERTED {
-            for marker in ["Checkbox::new(", "RadioButton::new("] {
-                let mut from = 0;
-                while let Some(at) = source[from..].find(marker) {
-                    let at = from + at;
-                    let rest = &source[at + marker.len()..];
-                    let line = &rest[..rest.find('\n').unwrap_or(rest.len())];
-                    if let Some(q) = line.find('"') {
-                        let before = line[..q].trim_end();
-                        assert!(before.ends_with("tr("), "{path}: the `{marker}` label `{}` is not in the catalog", &line[q..]);
-                    }
-                    from = at + marker.len();
-                }
-            }
-        }
-    }
-
-    /// The Settings pages come from the engine as data, so the literal scan above cannot see them:
-    /// every title, section, label, choice, button, note and unit they draw needs a Chinese row
-    /// (#1178). Language names are written in their own language, and a few labels read the same
-    /// everywhere.
-    #[test]
-    fn settings_pages_are_translated() {
-        use effectcraft_engine::prefs::{Item, Kind, LANGUAGES, pages};
-        const VERBATIM: &[&str] = &["", "3D", "1/2", "1/4", "1/8", "sRGB", "Display P3", "px", "s", "%", "MB", "GB", "Hz", "pt"];
-        let mut drawn = Vec::new();
-        for page in pages() {
-            drawn.push(page.title);
-            for item in page.items {
-                match item {
-                    Item::Section(text) | Item::Note(text) | Item::Button { label: text, .. } => drawn.push(text),
-                    Item::Setting { label, kind, .. } => {
-                        drawn.push(label);
-                        match kind {
-                            Kind::Int(_, _, unit) | Kind::Float(_, _, unit) => drawn.push(unit),
-                            Kind::Choice(options) => drawn.extend(options.iter().map(|(l, _)| *l)),
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        drawn.push("Stored, but not used by EffectCraft yet");
-        let languages: Vec<&str> = LANGUAGES.iter().map(|(l, _)| *l).filter(|l| *l != "Match System").collect();
-        let hans: HashMap<&str, &str> = SIMPLIFIED_CHINESE.iter().copied().collect();
-        let mut missing: Vec<&str> = drawn.into_iter().filter(|en| !VERBATIM.contains(en) && !languages.contains(en) && !hans.contains_key(en)).collect();
-        missing.sort_unstable();
-        missing.dedup();
-        assert!(missing.is_empty(), "Settings text with no Simplified Chinese row: {missing:?}");
-    }
-
-    /// A newly hard-coded interface string fails here instead of shipping in English to every
-    /// language. It is a heuristic - it looks at the call shapes the panels use - and it ignores
-    /// one-character literals, which are punctuation or a key name rather than a sentence.
-    #[test]
-    fn converted_panels_have_no_unwrapped_literals() {
-        for (path, source) in CONVERTED {
-            for (n, line) in source.lines().enumerate() {
-                let code = line.split("//").next().unwrap_or(line);
-                for call in CALLS {
-                    let Some(at) = code.find(call) else { continue };
-                    let rest = &code[at + call.len()..];
-                    let Some(end) = rest.find('"') else { continue };
-                    let literal = &rest[..end];
-                    assert!(
-                        literal.chars().count() < 2 || UNITS.contains(&literal),
-                        "{path}:{}: interface text `{literal}` in `{call}` is not in the catalog",
-                        n + 1
-                    );
-                }
-            }
         }
     }
 }

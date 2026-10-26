@@ -1,7 +1,8 @@
 //! Edit menu.
 
 use effectcraft_color::Label;
-use effectcraft_project::{Comp, Expression, ItemKind, Layer, LayerId, LayerSource, TrackMatte};
+use effectcraft_keyframe::Value as KV;
+use effectcraft_project::{Comp, Expression, ItemId, ItemKind, Layer, LayerId, LayerSource, TrackMatte};
 use effectcraft_time::Tick;
 use serde_json::{Value, json};
 
@@ -73,6 +74,10 @@ fn select_all(s: &mut Session, _: &Value) -> Result<Value> {
     Ok(json!(s.state.selected_layers.len()))
 }
 fn deselect_all(s: &mut Session, _: &Value) -> Result<Value> {
+    // A deselected layer never keeps an open text edit: commit the edit first, exactly as
+    // `text.endEdit` (an empty Type-tool layer included), so every route — menu, shortcut,
+    // script, MCP — leaves one final state.
+    super::text_edit::end_edit(s, &Value::Null)?;
     s.state.selected_layers.clear();
     s.state.selected_props.clear();
     s.state.selected_keys.clear();
@@ -144,46 +149,73 @@ fn duplicate(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!(new.iter().map(|l| l.0).collect::<Vec<_>>()))
 }
 
+/// `edit.clear`: delegates to `text.delete` while editing text (deleting the selection or
+/// preceding character/word), then handles selected Time Remap (turning remapping off), keyframes, loose mask
+/// vertices, puppet pins, effects, masks/shape items/text animators/trackers, and finally the
+/// selected (or given) unlocked layers. Layer and selected-property-group paths return the number
+/// removed; text, Time Remap, keyframe, loose-vertex, puppet-pin and effect paths return their
+/// delegated command's result.
+///
+/// Layer removal also unparents surviving children in place, clears track mattes that pointed
+/// at a removed layer and rewrites layer-reference values and keys to `None` in the same undo
+/// step; the text-edit session is then sanitized so a removed layer's editor is not reused.
 fn delete(s: &mut Session, p: &Value) -> Result<Value> {
-    if s.state.text_edit.is_some() && p.get("layers").is_none() {
-        return s.execute("text.delete", json!({}));
+    if let Some(done) = delete_selection(s, p)? {
+        return Ok(done);
+    }
+    let (cid, ids) = layers_p(s, p)?;
+    let ids = super::unlocked(s, cid, ids, "edit.clear")?;
+    clear_layers(s, cid, &ids)?;
+    // A removed layer may have been the edited one: end that session before another command
+    // can reuse it. Undo restores a layer as a new editor, never by reviving the old IME session.
+    s.sanitize_state();
+    Ok(json!(ids.len()))
+}
+
+/// Deletes the selected things that are not layers. `None` when the layers are deleted
+/// instead (nothing else is selected, or the command names its layers).
+fn delete_selection(s: &mut Session, p: &Value) -> Result<Option<Value>> {
+    let no_layers = p.get("layers").is_none();
+    if s.state.text_edit.is_some() && no_layers {
+        return Ok(Some(s.execute("text.delete", json!({}))?));
     }
     // Time Remap selected (its name, which selects all its keys) → time remapping off, not the
     // layer (After Effects).
-    if p.get("layers").is_none() {
+    if no_layers {
         let remapped = super::layer_time::selected_time_remap(s);
         if !remapped.is_empty() {
-            return super::layer_time::disable_time_remap(s, &remapped);
+            return Ok(Some(super::layer_time::disable_time_remap(s, &remapped)?));
         }
     }
     // Keyframes selected → delete keys; mask vertices → delete them; else layers.
-    if !s.state.selected_keys.is_empty() && p.get("layers").is_none() {
-        return s.execute("keys.delete", json!({}));
+    if !s.state.selected_keys.is_empty() && no_layers {
+        return Ok(Some(s.execute("keys.delete", json!({}))?));
     }
     // (Points selected with their mask, which selecting a mask does: the mask goes, below.)
     let comp = s.active_comp();
     let loose = s.state.selected_vertices.iter().any(|v| {
         !s.state.selected_props.contains(&(v.layer, v.mask)) && comp.and_then(|c| c.layer(v.layer)).is_some_and(|l| l.props.find_group(v.mask).is_some())
     });
-    if loose && p.get("layers").is_none() {
-        return s.execute("mask.deleteVertices", json!({}));
+    if loose && no_layers {
+        return Ok(Some(s.execute("mask.deleteVertices", json!({}))?));
     }
     // Puppet pins selected → delete the pins (not their layer).
-    if p.get("layers").is_none() && !super::puppet::selected_pins(s).is_empty() {
-        return s.execute("puppet.removePin", json!({}));
+    if no_layers && !super::puppet::selected_pins(s).is_empty() {
+        return Ok(Some(s.execute("puppet.removePin", json!({}))?));
     }
     // Effects selected → remove them.
-    if p.get("layers").is_none() && !super::effect::selected_effects(s).is_empty() {
-        return s.execute("effect.remove", json!({}));
+    if no_layers && !super::effect::selected_effects(s).is_empty() {
+        return Ok(Some(s.execute("effect.remove", json!({}))?));
     }
     // Masks, shape items, text animators or trackers selected → remove them.
-    if p.get("layers").is_none()
-        && let Some(n) = super::prop_groups::remove_selected(s)?
-    {
-        return Ok(n);
+    if no_layers && let Some(n) = super::prop_groups::remove_selected(s)? {
+        return Ok(Some(n));
     }
-    let (cid, ids) = layers_p(s, p)?;
-    let ids = super::unlocked(s, cid, ids, "edit.clear")?;
+    Ok(None)
+}
+
+/// Removes layers `ids` from comp `cid` in one undoable step, and clears what referred to them.
+fn clear_layers(s: &mut Session, cid: ItemId, ids: &[LayerId]) -> Result<()> {
     // Children of deleted layers are unparented where they are (like After Effects).
     let comp = s.project.comp(cid).ok_or(crate::EngineError::NoComp)?;
     let orphans: Vec<LayerId> = comp.layers.iter().filter(|l| !ids.contains(&l.id) && l.parent.is_some_and(|p| ids.contains(&p))).map(|l| l.id).collect();
@@ -201,13 +233,27 @@ fn delete(s: &mut Session, p: &Value) -> Result<Value> {
             if l.track_matte.is_some_and(|m| ids.contains(&m.layer)) {
                 l.track_matte = None;
             }
+            // A layer-reference property (an Environment light's Source, an effect's Clone Source,
+            // Back Layer…) must read as None once its layer is gone, in this same history step: a
+            // dead id renders as nothing while the UI shows "None", which means "fall back to the
+            // comp's Environment Layer" (#2153). Keys carry the same value kind as the property.
+            l.props.walk_mut(&mut |p| {
+                let dead = |v: &KV| matches!(v, KV::Layer(Some(id)) if ids.contains(&LayerId(*id)));
+                if dead(&p.value) {
+                    p.value = KV::Layer(None);
+                }
+                for k in &mut p.keys {
+                    if dead(&k.value) {
+                        k.value = KV::Layer(None);
+                    }
+                }
+            });
         }
         st.selected_layers.clear();
         st.selected_props.clear();
         st.selected_keys.clear();
         Ok(())
-    })?;
-    Ok(json!(ids.len()))
+    })
 }
 
 fn clear_clipboards(s: &mut Session) {
@@ -827,7 +873,7 @@ fn original_path(s: &Session) -> Option<String> {
 /// importer takes. Anything else (a folder or app bundle, a script, a shortcut) is refused.
 pub(crate) fn openable_original(path: &str) -> std::result::Result<(), String> {
     let media = |p: &std::path::Path| {
-        let ext = p.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+        let ext = p.extension().and_then(std::ffi::OsStr::to_str).map(str::to_ascii_lowercase).unwrap_or_default();
         crate::media_browser::kind_of(&p.to_string_lossy()).is_some_and(|k| k != "project") || matches!(ext.as_str(), "pdf" | "ai" | "eps")
     };
     let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string());
