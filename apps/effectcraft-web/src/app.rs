@@ -233,9 +233,18 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
     // Match System follows `?lang=` in the address, then the browser's languages; a language
     // chosen in Settings still wins.
     let navigator = web_sys::window().map(|w| w.navigator());
-    let browser = navigator.iter().flat_map(|n| n.languages().iter().filter_map(|v| v.as_string()).collect::<Vec<_>>());
-    effectcraft_ui_egui::i18n::set_system_locales(query_value("lang"), browser.collect());
-    load_fallback_font();
+    let browser: Vec<String> = navigator.iter().flat_map(|n| n.languages().iter().filter_map(|v| v.as_string()).collect::<Vec<_>>()).collect();
+    // A browser that asks for Georgian waits for the site's Georgian face, so Match System can
+    // pick Georgian from the first frame; everyone else gets it in the background.
+    if browser.iter().any(|t| t.split(['-', '_']).next().is_some_and(|p| p.eq_ignore_ascii_case("ka"))) {
+        match fetch_font(FALLBACK_FONT_URL).await {
+            Ok(bytes) => effectcraft_ui_egui::theme::set_runtime_fallback_font(bytes),
+            Err(e) => log::info!("no interface fallback font at {FALLBACK_FONT_URL}: {e}"),
+        }
+    } else {
+        load_fallback_font();
+    }
+    effectcraft_ui_egui::i18n::set_system_locales(query_value("lang"), browser);
     let doc = web_sys::window().and_then(|w| w.document()).ok_or("no document")?;
     let canvas: web_sys::HtmlCanvasElement = doc.get_element_by_id(&canvas_id).ok_or("no canvas")?.dyn_into()?;
     let empty = query_flag("empty");

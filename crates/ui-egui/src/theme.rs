@@ -343,6 +343,12 @@ pub fn set_runtime_fallback_font(bytes: Vec<u8>) {
     }
 }
 
+/// Whether the web page supplied a runtime fallback face (the site's Georgian face).
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+pub(crate) fn has_runtime_fallback() -> bool {
+    RUNTIME_FALLBACK.get().is_some()
+}
+
 /// Whether a runtime fallback face arrived that [`install`] hasn't installed yet.
 pub(crate) fn runtime_fallback_pending() -> bool {
     RUNTIME_FALLBACK_NEW.load(std::sync::atomic::Ordering::Relaxed)

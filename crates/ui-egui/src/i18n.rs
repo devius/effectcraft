@@ -116,9 +116,13 @@ fn first_supported(requested: Option<&str>, browser: &[String], drawable: impl F
 /// Whether the web build can draw `language`'s interface. It installs no system fonts and its
 /// bundled faces have no CJK or Georgian glyphs, so Match System skips those browser languages
 /// rather than draw boxes; `?lang=` and a language chosen in Settings still select them.
+/// Georgian is drawn once the page has supplied its Georgian face ([`crate::theme::set_runtime_fallback_font`]).
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 fn web_draws(language: &str) -> bool {
-    !matches!(language, "ja" | "zh-hans" | "zh-hant" | "ka")
+    match language {
+        "ka" => crate::theme::has_runtime_fallback(),
+        _ => !matches!(language, "ja" | "zh-hans" | "zh-hant"),
+    }
 }
 
 /// The language EffectCraft shows for a BCP 47 locale (`ja-JP` → `ja`, `zh-Hans-CN` → `zh-hans`,
