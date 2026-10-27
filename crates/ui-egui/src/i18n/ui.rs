@@ -4639,6 +4639,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Frame Aspect Ratio: {}", "კადრის თანაფარდობა: {}"),
     ("Frame Blending: {}", "კადრების შერევა: {}"),
     ("Frame Rate:", "კადრების სიხშირე:"),
+    ("Resolution:", "გარჩევადობა:"),
     ("Frame Render Time  {}ms", "კადრის რენდერის დრო  {}ms"),
     ("Frame Target:", "კადრის სამიზნე:"),
     ("Freeze", "გაყინვა"),
@@ -5219,6 +5220,7 @@ const GEORGIAN: &[(&str, &str)] = &[
 /// the Timeline's context menus. Kept apart from [`GEORGIAN`] so that table can keep listing
 /// exactly the Chinese catalogs' sources; the tests hold these to the same rules.
 const GEORGIAN_PANELS: &[(&str, &str)] = &[
+    ("Close font search", "შრიფტის ძიების დახურვა"),
     ("Search project", "პროექტში ძიება"),
     ("Select an item to see its details", "მონიშნეთ ელემენტი დეტალებისთვის"),
     ("Media Duration", "მედიის ხანგრძლივობა"),

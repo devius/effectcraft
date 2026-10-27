@@ -6939,6 +6939,7 @@ const GEORGIAN: &[(&str, &str, &str)] = &[
     ("layer.newShape", "Shape Layer", "ფიგურის შრე"),
     ("layer.newAdjustment", "Adjustment Layer", "კორექციის შრე"),
     ("layer.newContentAwareFill", "Content-Aware Fill Layer...", "შიგთავსის გათვალისწინებით შევსების შრე..."),
+    ("layer.newPrimitive", "3D Primitive...", "3D პრიმიტივი..."),
     ("layer.new3dPrimitive", "Cube", "კუბი"),
     ("layer.new3dPrimitive", "Sphere", "სფერო"),
     ("layer.new3dPrimitive", "Plane", "სიბრტყე"),
