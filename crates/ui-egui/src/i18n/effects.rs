@@ -810,7 +810,7 @@ const GEORGIAN: &[Row] = &[
     ("ec.3d.fog3d", "Fog 3D", "3D ნისლი"),
     ("ec.3d.identifier", "IDentifier", "IDentifier"),
     ("ec.3d.idmatte", "ID Matte", "ID მატი"),
-    ("ec.3d.instance3d", "3D Layer Instance", "3D Layer Instance"),
+    ("ec.3d.instance3d", "3D Layer Instance", "3D შრის ინსტანსი"),
     ("ec.audio.backwards", "Backwards", "უკუღმა"),
     ("ec.audio.basstreble", "Bass & Treble", "ბასი და ტრებლი"),
     ("ec.audio.compressor", "Compressor", "კომპრესორი"),
