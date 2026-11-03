@@ -9182,6 +9182,17 @@ const GEORGIAN_PANELS: &[(&str, &str)] = &[
     ("Open in Essential Graphics", "ძირითად გრაფიკაში გახსნა"),
     ("Video preview is off (Preview panel): audio only", "ვიდეოს წინასწარი ნახვა გამორთულია (წინასწარი ნახვის პანელი): მხოლოდ აუდიო"),
     ("Solid…", "სოლიდი…"),
+    ("Active Camera ({})", "აქტიური კამერა ({})"),
+    ("Selector: Range", "სელექტორი: დიაპაზონი"),
+    ("Selector: Wiggly", "სელექტორი: რხევითი"),
+    ("Selector: Expression", "სელექტორი: ექსპრესია"),
+    ("Property: {}", "თვისება: {}"),
+    ("Variable Font Axes: {}", "ცვლადი შრიფტის ღერძები: {}"),
+    ("Animate:", "ანიმირება:"),
+    ("Add property or selector", "თვისების ან სელექტორის დამატება"),
+    ("Animate text", "ტექსტის ანიმირება"),
+    ("Check for Updates", "განახლებების შემოწმება"),
+    ("Update check is not supported in the web browser.", "განახლებების შემოწმება ვებბრაუზერში მხარდაჭერილი არ არის."),
 ];
 
 /// French: vouvoiement, infinitive for commands, sentence case; the same source strings as the other
