@@ -163,6 +163,7 @@ fn vertex_delta(app: &EffectcraftApp, layer: effectcraft_engine::project::LayerI
         footage: None,
         property_overrides: &[],
         media_overrides: &[],
+        reads: None,
     };
     let (l2c, _) = crate::panels::viewer::l2c(&ectx, l);
     l2c.inverse().map_or(d, |inv| {
@@ -283,6 +284,10 @@ pub fn invoke(app: &mut EffectcraftApp, ctx: &egui::Context, id: &str, params: V
     // Deleting Project items that compositions use asks first, as in After Effects.
     if crate::panels::delete_items::guard(app, id, &params) {
         return Ok(json!({"dialog": "deleteItems"}));
+    }
+    // Un-precompose that would change the picture lists why and asks before unpacking anyway.
+    if crate::panels::unprecompose::guard(app, id, &params)? {
+        return Ok(json!({"dialog": "unprecompose"}));
     }
     // An After Effects import with a path that loses something asks first (the menu's file
     // dialog asks in `run_with_picked`).
