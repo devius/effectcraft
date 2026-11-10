@@ -8893,7 +8893,6 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Script Console", "სკრიპტის კონსოლი"),
     ("Essential Graphics", "ძირითადი გრაფიკა"),
     ("ScriptUI Panel", "ScriptUI პანელი"),
-    ("Lumetri Scopes", "Lumetri Scopes"),
     ("Media Browser", "მედიის ბრაუზერი"),
     ("Content-Aware Fill", "შიგთავსის გათვალისწინებით შევსება"),
     ("Create Nulls From Paths", "ნულოვანი ობიექტების შექმნა ტრაექტორიებიდან"),
