@@ -5,8 +5,9 @@ use super::fx_host::{FxHost, essential_overrides};
 use super::opts::{Collapse3d, LayerTiming, MAX_THROUGH, RenderOpts, Through};
 use super::reads::{ReadFiles, ReadLog};
 use super::{
-    Arc, AutoKey, AutoPick, BlendMode, Buf, Comp, EffectCtx, EffectEnv, EvalCtx, Footage, FootageKind, FrameBlend, FrameRate, GroupKind, Image, ItemId,
-    ItemKind, Layer, LayerCache, LayerSource, Params, Project, Quality, Region, Renderer, Tick, cache, color, masks, shapes, styles, text, three_d, vec2,
+    Arc, AutoKey, AutoPick, AutoTicket, BlendMode, Buf, Comp, EffectCtx, EffectEnv, EvalCtx, Footage, FootageKind, FrameBlend, FrameRate, GroupKind, Image,
+    ItemId, ItemKind, Layer, LayerCache, LayerSource, Params, Project, Quality, Region, Renderer, Tick, cache, color, masks, shapes, styles, text, three_d,
+    vec2,
 };
 use effectcraft_keyframe::Value;
 use effectcraft_project::LayerId;
@@ -55,6 +56,29 @@ pub struct MediaOverride {
     pub(crate) item: ItemId,
 }
 
+/// The most pixels a solid layer's buffer holds (as the other layer buffers are held to).
+const MAX_SOLID_PIXELS: f64 = 16.0e6;
+
+/// The scale and whole-pixel size of a `width`×`height` solid rendered at `scale`, lowered until
+/// the rounded size (each side at least one pixel) is within [`MAX_SOLID_PIXELS`].
+pub(crate) fn solid_size(width: u32, height: u32, mut scale: f64) -> (f64, u32, u32) {
+    let size = |s: f64| (((width as f64 * s).ceil() as u32).max(1), ((height as f64 * s).ceil() as u32).max(1));
+    // Rounding up leaves an elongated solid over the cap after one step; each step shrinks the
+    // overshoot geometrically, so a few are enough.
+    for i in 0..64 {
+        let (w, h) = size(scale);
+        let area = w as f64 * h as f64;
+        if area <= MAX_SOLID_PIXELS {
+            break;
+        }
+        // The first step is the exact area ratio; later ones undershoot a little so rounding up
+        // cannot leave the size stuck just over the cap.
+        scale *= (MAX_SOLID_PIXELS / area).sqrt() * if i == 0 { 1.0 } else { 0.99 };
+    }
+    let (w, h) = size(scale);
+    (scale, w, h)
+}
+
 impl MediaOverride {
     /// A Media Replacement of `layer`'s footage by `item`.
     pub fn new(layer: LayerId, item: ItemId) -> Self {
@@ -67,6 +91,26 @@ pub struct Collapsed {
     pub item: ItemId,
     pub(crate) property_overrides: Vec<PropertyOverride>,
     pub(crate) media_overrides: Vec<MediaOverride>,
+}
+
+/// Cache key of a frame-blended footage frame: `seed` (which frames, how they mix, the footage
+/// file) and the Interpret Footage settings that change the decoded pixels.
+fn blended_frame_key(f: &Footage, seed: impl std::hash::Hash) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    seed.hash(&mut h);
+    // Every file of a sequence: the key must tell two projects apart whose items share an id
+    // and a first frame (on disk, no project-wide salt does, #3184).
+    f.sequence.hash(&mut h);
+    (f.alpha as u8).hash(&mut h);
+    if f.alpha == effectcraft_project::AlphaMode::Premultiplied {
+        f.premul_color.map(f32::to_bits).hash(&mut h);
+    }
+    if f.cineon_applies() {
+        let c = &f.cineon;
+        [c.converted_black, c.converted_white, c.black, c.white, c.gamma, c.rolloff].map(f32::to_bits).hash(&mut h);
+    }
+    h.finish()
 }
 
 /// The property and media overrides of a collapsed precomp layer. `None` when its Essential
@@ -584,23 +628,24 @@ impl<'a> Renderer<'a> {
         if self.depth == 0
             && let Some(a) = self.active_accel()
         {
-            let auto = self.frame_auto(a, comp_id, false);
-            if auto.is_none_or(|(p, key)| p.choose(key)) {
+            // (an error returns with the ticket, which ends the frame unmeasured)
+            let mut ticket = self.frame_auto(a, comp_id, false).map(|(p, key)| p.ticket(key));
+            if ticket.as_ref().is_none_or(AutoTicket::gpu) {
                 let t0 = web_time::Instant::now();
                 if let Some(img) = scope(a)? {
-                    if let Some((p, key)) = auto {
-                        p.record(key, true, t0.elapsed().as_secs_f64() * 1e3);
+                    if let Some(t) = ticket {
+                        t.record(t0.elapsed().as_secs_f64() * 1e3);
                     }
                     return Ok(img);
                 }
-                if let Some((p, key)) = auto {
-                    p.declined(key);
+                if let Some(t) = &mut ticket {
+                    t.declined();
                 }
             }
             let t0 = web_time::Instant::now();
             let img = cpu.comp_frame_cpu(comp_id, t);
-            if let Some((p, key)) = auto {
-                p.record(key, false, t0.elapsed().as_secs_f64() * 1e3);
+            if let Some(t) = ticket {
+                t.record(t0.elapsed().as_secs_f64() * 1e3);
             }
             return Ok(img);
         }
@@ -755,6 +800,15 @@ impl<'a> Renderer<'a> {
             return;
         }
         let Some(fx) = layer.effects() else { return };
+        // The LUT files the stack reads go to this render's files: a frame on disk made with one
+        // that changed since is not used (#3493).
+        if let Some(log) = self.reads {
+            for g in fx.groups().take(limit).filter(|g| g.enabled) {
+                for f in super::reads::lut_files(ctx, layer, g) {
+                    log.note(f);
+                }
+            }
+        }
         let lt = layer.layer_time(ctx.time);
         let layer_size = ctx.effect_bounds(layer).0;
         // #659 / #1205: an authored layer's buffer spans only its painted content. Effects that
@@ -878,12 +932,19 @@ impl<'a> Renderer<'a> {
 
     /// Source pixels of a layer in layer space (before masks/effects).
     pub(crate) fn source(&self, ctx: &EvalCtx, layer: &Layer) -> Option<Buf> {
+        self.source_with(ctx, layer, false)
+    }
+
+    /// [`Renderer::source`]; with `quantized`, footage that [`Renderer::prequantized_footage`]
+    /// counts comes quantised to the project depth.
+    fn source_with(&self, ctx: &EvalCtx, layer: &Layer, quantized: bool) -> Option<Buf> {
         let s = self.opts.scale;
         match &layer.source {
             LayerSource::Solid { item } => {
                 let ItemKind::Solid(sol) = &self.project.item(*item)?.kind else { return None };
-                let w = ((sol.width as f64 * s).ceil() as u32).max(1);
-                let h = ((sol.height as f64 * s).ceil() as u32).max(1);
+                // One colour: a solid larger than MAX_SOLID_PIXELS is made at a lower scale (the
+                // buffer carries it) instead of allocating gigabytes for a uniform plane.
+                let (s, w, h) = solid_size(sol.width, sol.height, s);
                 if layer.switches.adjustment {
                     return Some(Buf { img: Image::filled(w, h, [1.0; 4]), offset: [0.0; 2], scale: s });
                 }
@@ -910,7 +971,7 @@ impl<'a> Renderer<'a> {
                     && let Some(nc) = self.project.comp(*item)
                 {
                     let img = self.footage_frame(ctx, layer, *item, pf, lt, None)?;
-                    return Some(self.footage_buf(&img, pf, nc.width, nc.height));
+                    return Some(self.footage_buf(&img, pf, nc.width, nc.height, false));
                 }
                 // Essential Properties overrides render the nested comp with this instance's
                 // values.
@@ -958,8 +1019,12 @@ impl<'a> Renderer<'a> {
                         return Some(buf);
                     }
                 }
+                // 8 bpc plain footage: made from the footage's 8-bit levels, no float frame.
+                if quantized && let Some(buf) = self.footage_buf8(ctx, layer, item, self.proxy_for(item).unwrap_or(f), f, ctx.source_time(layer)) {
+                    return Some(buf);
+                }
                 let (img, pf) = self.footage_picture_of(ctx, layer, item, f)?;
-                Some(self.footage_buf(&img, pf, f.width, f.height))
+                Some(self.footage_buf(&img, pf, f.width, f.height, quantized && Self::prequantized_footage(layer)))
             }
             // (the font files go to this render's log, which `ctx` may not carry: see
             // [`Renderer::with_reads`])
@@ -992,15 +1057,74 @@ impl<'a> Renderer<'a> {
 
     /// A decoded frame of `f` as a layer buffer covering `w`×`h` layer pixels (the footage's
     /// nominal size; proxies are scaled up to it), converted from its colour profile.
-    fn footage_buf(&self, img: &Image, f: &Footage, w: u32, h: u32) -> Buf {
-        let mut buf = match self.footage_layout(img, w, h) {
-            FootageLayout::Native { scale } => Buf { img: img.clone(), offset: [0.0; 2], scale },
-            FootageLayout::Resample { width, height, scale } => Buf { img: effectcraft_raster::resample(img, width, height), offset: [0.0; 2], scale },
-        };
-        if let Some(c) = self.pipe.media_in(f) {
-            color::convert(&mut buf.img, &c);
+    ///
+    /// `quantized`: also clamp and quantise it to the project depth, as [`Renderer::masked_source`]
+    /// would (fused with the copy of the cached frame: one pass over it instead of three).
+    fn footage_buf(&self, img: &Image, f: &Footage, w: u32, h: u32, quantized: bool) -> Buf {
+        let c = self.pipe.media_in(f);
+        match self.footage_layout(img, w, h) {
+            FootageLayout::Native { scale } => {
+                let img = match (quantized, &c) {
+                    (true, _) => self.pipe.copy_converted(img, c.as_ref()),
+                    (false, Some(c)) => {
+                        let mut img = img.clone();
+                        color::convert(&mut img, c);
+                        img
+                    }
+                    (false, None) => img.clone(),
+                };
+                Buf { img, offset: [0.0; 2], scale }
+            }
+            FootageLayout::Resample { width, height, scale } => {
+                let mut img = effectcraft_raster::resample(img, width, height);
+                if let Some(c) = &c {
+                    color::convert(&mut img, c);
+                }
+                if quantized {
+                    self.pipe.quantize(&mut img);
+                }
+                Buf { img, offset: [0.0; 2], scale }
+            }
         }
-        buf
+    }
+
+    /// [`Renderer::footage_buf`]'s quantised buffer made from the footage's 8-bit levels
+    /// ([`FootageSource::frame8`]), the same pixels to the bit, when nothing before the quantise
+    /// changes them: an 8 bpc render at Full size of plain footage (no masks, colour profile,
+    /// Separate Fields, Frame Blending, Cineon, Invert Alpha or linear light interpretation).
+    /// `None` otherwise, and when the source has no 8-bit frame.
+    // ponytail: the media pool keeps the 8-bit and the float frame as separate entries, so a
+    // movie shown by both a plain and a masked layer in one 8 bpc comp is decoded twice per
+    // frame; derive one from the other in the pool if a comp like that turns out common.
+    #[allow(clippy::too_many_arguments)]
+    fn footage_buf8(&self, ctx: &EvalCtx, layer: &Layer, item: ItemId, pf: &Footage, f: &Footage, t: Tick) -> Option<Buf> {
+        let plain = self.pipe.levels == Some(255.0)
+            && Self::prequantized_footage(layer)
+            && self.reduced_size(f.width, f.height).is_none()
+            && self.pipe.media_in(pf).is_none()
+            && pf.fields == effectcraft_project::FieldOrder::Off
+            && !(pf.invert_alpha || pf.linear_light_applies() || pf.cineon_applies())
+            && frame_blend_mode(ctx, layer) == FrameBlend::Off;
+        if !plain {
+            return None;
+        }
+        let fr = self.read(|| self.footage.frame8(item, pf, t, self.pipe.float_curve(pf)))?;
+        let n = (fr.width as usize).checked_mul(fr.height as usize)?;
+        let px = fr.rgba.as_chunks::<4>().0;
+        if px.len() != n {
+            return None;
+        }
+        use rayon::prelude::*;
+        let data = px.par_iter().map(|&p| effectcraft_raster::expand_u8(p)).collect();
+        let k = if fr.width > 0 { f.width.max(1) as f64 / fr.width as f64 } else { 1.0 };
+        Some(Buf { img: Image { width: fr.width, height: fr.height, data }, offset: [0.0; 2], scale: 1.0 / k })
+    }
+
+    /// The layer's source is footage that [`Renderer::source`] hands over already quantised
+    /// ([`Renderer::footage_buf`]): footage without masks (masks apply to unquantised pixels).
+    /// Collapsed layers may be vector footage, drawn elsewhere: not counted.
+    fn prequantized_footage(layer: &Layer) -> bool {
+        matches!(layer.source, LayerSource::Footage { .. }) && !layer.switches.collapse && layer.masks().is_none_or(|m| m.groups().next().is_none())
     }
 
     /// How [`Renderer::footage_buf`] lays out a decoded frame `img` of footage `w`×`h` layer
@@ -1119,26 +1243,16 @@ impl<'a> Renderer<'a> {
         let mode = frame_blend_mode(ctx, layer);
         let float = self.pipe.float_curve(f);
         if mode != FrameBlend::Off && matches!(f.kind, FootageKind::Video | FootageKind::Sequence) {
+            // Many source frames per comp frame (footage interpreted much faster than the comp,
+            // #3180): the frames the comp frame spans are averaged.
+            if let Some(img) = self.mixed_span_frame(ctx, layer, item, f, t, size) {
+                return Some(img);
+            }
             let (i, w) = frame_position(t, f.frame_rate);
             if w > 1e-6 {
                 // Blended frames are cached (Pixel Motion is expensive).
-                let key = self.cache.map(|_| {
-                    use std::hash::{Hash, Hasher};
-                    let mut h = std::collections::hash_map::DefaultHasher::new();
-                    (0x00f8_a3e5_u64, item, i, (w as f32).to_bits(), mode as u8, f.frame_rate.num, f.frame_rate.den, &f.path, float).hash(&mut h);
-                    // Every file of a sequence: the key must tell two projects apart whose items
-                    // share an id and a first frame (on disk, no project-wide salt does, #3184).
-                    f.sequence.hash(&mut h);
-                    (f.alpha as u8).hash(&mut h);
-                    if f.alpha == effectcraft_project::AlphaMode::Premultiplied {
-                        f.premul_color.map(f32::to_bits).hash(&mut h);
-                    }
-                    if f.cineon_applies() {
-                        let c = &f.cineon;
-                        [c.converted_black, c.converted_white, c.black, c.white, c.gamma, c.rolloff].map(f32::to_bits).hash(&mut h);
-                    }
-                    h.finish()
-                });
+                let seed = (0x00f8_a3e5_u64, item, i, (w as f32).to_bits(), mode as u8, f.frame_rate.num, f.frame_rate.den, &f.path, float);
+                let key = self.cache.map(|_| blended_frame_key(f, seed));
                 if let Some((b, _)) = self.cached(key) {
                     return Some(Arc::new(b.img.clone()));
                 }
@@ -1157,15 +1271,68 @@ impl<'a> Renderer<'a> {
         self.read(|| self.footage.frame_with(item, f, t, size, float)).map(|img| cineon_frame(img, f))
     }
 
+    /// A frame-blended footage frame at source time `t` when one comp frame runs through many
+    /// source frames: the average of the source frames the comp frame spans, each weighted by
+    /// the share of it the span covers ([`super::frames::mix_window`]). Both Frame Mix and
+    /// Pixel Motion average real frames here (there is no in-between frame to synthesise).
+    /// `size`: the frames may come resampled to it ([`FootageSource::frame_at_size`]). `None`
+    /// when the span is too short (or a jump) to mix, or no frame decodes.
+    fn mixed_span_frame(&self, ctx: &EvalCtx, layer: &Layer, item: ItemId, f: &Footage, t: Tick, size: Option<(u32, u32)>) -> Option<Arc<Image>> {
+        use rayon::prelude::*;
+        let float = self.pipe.float_curve(f);
+        let spans = super::frames::blend_spans(ctx, layer);
+        let frames = super::frames::mix_window(t, spans, f.frame_rate)?;
+        let seed = (0x00f8_a3e6_u64, item, t.0, spans, size, f.frame_rate.num, f.frame_rate.den, &f.path, float);
+        let key = self.cache.map(|_| blended_frame_key(f, seed));
+        if let Some((b, _)) = self.cached(key) {
+            return Some(Arc::new(b.img.clone()));
+        }
+        // A weighted sum in one buffer, divided by the total weight at the end. A frame that does
+        // not decode, or has another size than the first (a sequence of mixed sizes), is left
+        // out and the mix renormalises over the rest. Log scans are converted before they mix.
+        let ((acc, total), files) = self.recorded(key, |r| {
+            let mut acc: Option<Image> = None;
+            let mut total = 0.0;
+            for (j, w) in frames {
+                let Some(img) = r.read(|| r.footage.frame_with(item, f, f.frame_rate.tick_of(j), size, float)).map(|a| cineon_frame(a, f)) else { continue };
+                let sum = acc.get_or_insert_with(|| Image::new(img.width, img.height));
+                if (sum.width, sum.height) != (img.width, img.height) {
+                    continue;
+                }
+                let wf = w as f32;
+                sum.data.par_iter_mut().zip(img.data.par_iter()).for_each(|(s, p)| {
+                    for (a, b) in s.iter_mut().zip(p) {
+                        *a += b * wf;
+                    }
+                });
+                total += w;
+            }
+            (acc, total)
+        });
+        let mut img = acc?;
+        if total <= 1e-9 {
+            return None;
+        }
+        let norm = (1.0 / total) as f32;
+        img.data.par_iter_mut().for_each(|s| {
+            for c in s.iter_mut() {
+                *c *= norm;
+            }
+        });
+        let _kept = self.keep(key, Arc::new(Buf { img: img.clone(), offset: [0.0; 2], scale: 1.0 }), &files);
+        Some(Arc::new(img))
+    }
+
     /// Source → masks, clamped/quantised to the project depth.
     fn masked_source(&self, ctx: &EvalCtx, layer: &Layer) -> Option<Buf> {
-        let mut buf = match self.content_times(ctx, layer) {
-            Some(times) => self.blurred_source(ctx, layer, &times)?,
-            None => self.source(ctx, layer)?,
+        let (mut buf, quantized) = match self.content_times(ctx, layer) {
+            Some(times) => (self.blurred_source(ctx, layer, &times)?, false),
+            None => (self.source_with(ctx, layer, true)?, Self::prequantized_footage(layer)),
         };
-        // A solid is filled with a quantised colour: only masks can take it off the grid.
+        // A solid is filled with a quantised colour, and plain footage comes quantised: only
+        // masks can take them off the grid.
         let solid = matches!(layer.source, LayerSource::Solid { .. });
-        if masks::apply(ctx, layer, &mut buf, self.mask_blur(ctx, layer)) || !solid {
+        if masks::apply(ctx, layer, &mut buf, self.mask_blur(ctx, layer)) || !(solid || quantized) {
             self.pipe.quantize(&mut buf.img);
         }
         Some(buf)

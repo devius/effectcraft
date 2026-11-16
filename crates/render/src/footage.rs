@@ -37,6 +37,14 @@ pub trait FootageSource: Send + Sync {
             None => self.frame(item, footage, t),
         }
     }
+    /// [`FootageSource::frame_with`]'s full-size frame as 8-bit levels: each pixel is
+    /// [`effectcraft_raster::quantize_px_u8`] of the float pixel `frame_with` would give, so
+    /// [`effectcraft_raster::expand_u8`] makes that frame quantised to 8 bpc, bit for bit, from a
+    /// quarter of the memory (an 8 bpc render of 8-bit footage). `None` when the source has no
+    /// cheaper way than the float frame; the renderer then takes that.
+    fn frame8(&self, _item: ItemId, _footage: &Footage, _t: Tick, _float: FloatCurve) -> Option<Arc<crate::disk_cache::Frame8>> {
+        None
+    }
     /// `frames` interleaved stereo sample frames of `item`'s audio from source time `t` at
     /// `rate` Hz (`None` when unavailable). The first sample is `t.to_units_floor(rate)`;
     /// a sample boundary uses the earliest representable tick that selects that sample.
@@ -65,9 +73,9 @@ pub trait FootageSource: Send + Sync {
     /// Drop the decoded frames it keeps (Edit ▸ Purge ▸ All Memory / Image Cache Memory): the
     /// next reads decode again. Sources without a cache ignore it.
     fn purge(&self) {}
-    /// The file at `path` changed on disk (Reload Footage): drop what it keeps of it (decoded
-    /// frames, open decoders, parsed models), so the next reads see the new contents. Sources
-    /// without a cache ignore it.
+    /// The file at `path` changed on disk (Reload Footage), or the project showing it closed:
+    /// drop what it keeps of it (decoded frames, open decoders, parsed models), so the next reads
+    /// see the new contents. Sources without a cache ignore it.
     fn forget(&self, _path: &str) {}
     /// Settings ▸ Disk ▸ Conformed Audio Folder: where decoded audio is kept between reads
     /// (`None` = off); sources that don't decode audio ignore it.
@@ -197,7 +205,7 @@ impl FootageSource for CancellableFootage<'_> {
         self.inner.cache_budget()
     }
     fn vector_frame(&self, item: ItemId, footage: &Footage, scale: f64) -> Option<Arc<Image>> {
-        self.inner.vector_frame(item, footage, scale)
+        self.read(|| self.inner.vector_frame(item, footage, scale))
     }
     fn cancellable(&self, cancel: &Arc<AtomicBool>, f: &mut dyn FnMut()) {
         self.inner.cancellable(cancel, f)
@@ -215,12 +223,15 @@ impl FootageSource for CancellableFootage<'_> {
     fn frame_with(&self, item: ItemId, footage: &Footage, t: Tick, size: Option<(u32, u32)>, float: FloatCurve) -> Option<Arc<Image>> {
         self.read(|| self.inner.frame_with(item, footage, t, size, float))
     }
+    fn frame8(&self, item: ItemId, footage: &Footage, t: Tick, float: FloatCurve) -> Option<Arc<crate::disk_cache::Frame8>> {
+        self.read(|| self.inner.frame8(item, footage, t, float))
+    }
 }
 
 /// Footage that can be rasterised at any scale: SVG, PDF, Illustrator and EPS files, and a
 /// placed page of an After Effects project (its codec is not stored there).
 pub fn is_vector_footage(f: &Footage) -> bool {
-    matches!(f.codec.as_str(), "SVG" | "PDF" | "AI" | "EPS") || f.placed_page
+    matches!(f.codec.as_str(), "SVG" | "PDF" | "AI" | "EPS" | "VectorCraft") || f.placed_page
 }
 
 /// How vector footage `f` is drawn at `scale` × its size: the image size, and the x and y scale
