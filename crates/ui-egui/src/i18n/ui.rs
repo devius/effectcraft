@@ -8204,10 +8204,10 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Copy Presets Folder Path", "პრესეტების საქაღალდის მისამართის კოპირება"),
     ("Copy Source Path", "წყაროს მისამართის კოპირება"),
     ("Effects: {}", "ეფექტები: {}"),
-    ("EXR Bit Depth: {}", "EXR ბიტის სიღრმე: {}"),
+    ("EXR Bit Depth: {}", "EXR ბიტური სიღრმე: {}"),
     ("EXR Compression: {}", "EXR შეკუმშვა: {}"),
     ("EXR Compression: {} (lossy)", "EXR შეკუმშვა: {} (დანაკარგით)"),
-    ("EXR Compression: {} (uncompressed at float)", "EXR შეკუმშვა: {} (float-ზე შეკუმშვის გარეშე)"),
+    ("EXR Compression: {} (uncompressed at float)", "EXR შეკუმშვა: {} (მცურავ სიღრმეზე შეუკუმშავი)"),
     ("Empty folder", "ცარიელი საქაღალდე"),
     ("Enable Depth of Field", "ველის სიღრმის ჩართვა"),
     ("Enable Expression", "ექსპრესიის ჩართვა"),
@@ -9121,7 +9121,7 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("Label {} color", "იარლიყის {} ფერი"),
     ("Label {} name", "იარლიყის {} სახელი"),
     ("Stroke width presets", "კონტურის სისქის პრესეტები"),
-    ("Video Scopes", "ვიდეოსკოპები"),
+    ("Video Scopes", "ვიდეოს სკოპები"),
 ];
 
 /// Georgian rows for interface text no other catalog has yet: strings the panels already send
