@@ -8115,6 +8115,10 @@ const GEORGIAN: &[(&str, &str)] = &[
         "Some parts of this project cannot be imported exactly (left out or changed):",
         "ამ პროექტის ზოგიერთი ნაწილის ზუსტად იმპორტი შეუძლებელია (გამოტოვებული ან შეცვლილი):",
     ),
+    (
+        "Some parts of this project cannot be exported exactly (left out or changed):",
+        "ამ პროექტის ზოგიერთი ნაწილის ზუსტად ექსპორტი შეუძლებელია (გამოტოვებული ან შეცვლილი):",
+    ),
     ("Import Anyway", "მაინც იმპორტი"),
     ("{}: {} left out or changed", "{}: {} გამოტოვებული ან შეცვლილი"),
     ("… and {} more", "… და კიდევ {}"),
