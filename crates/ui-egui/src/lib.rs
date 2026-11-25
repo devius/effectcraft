@@ -21,6 +21,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
 pub mod audio;
 pub mod automation;
 pub mod bench;
+pub mod channel;
 pub mod color_picker;
 pub mod control;
 pub mod credits;
@@ -536,6 +537,11 @@ impl FileDialogsUp {
             *self = Self::default();
         }
         self.count = self.count.saturating_add(1);
+    }
+
+    /// Whether one is up.
+    pub(crate) fn any(&self) -> bool {
+        self.count > 0
     }
 
     pub(crate) fn answered(&mut self) {
